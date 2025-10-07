@@ -1,5 +1,6 @@
 """
 DAA服务接口
+用于和DAA算法进行交互
 """
 from flask import Flask, request, jsonify
 import yaml, json
