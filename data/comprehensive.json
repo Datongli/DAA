@@ -1,0 +1,819 @@
+{
+    "config": {
+        "main": {
+            "env": {
+                "num_envs": 1
+            },
+            "utmZone": "50N"
+        },
+        "UAVs": {
+            "UAVs": {
+                "id": "UAV01",
+                "sensors": [
+                    "Radar",
+                    "UWB",
+                    "Track",
+                    "Cloud"
+                ],
+                "Radar": {
+                    "rangeAcc": 0.1,
+                    "azimuthAcc": 1,
+                    "elevationAcc": 2
+                },
+                "UWB": {
+                    "rangeAcc": 0.1,
+                    "azimuthAcc": 1,
+                    "elevationAcc": 2
+                },
+                "Track": {
+                    "eastAcc": 0.1,
+                    "northAcc": 0.1,
+                    "upAcc": 0.1,
+                    "eastVelocityAcc": 0.5,
+                    "northVelocityAcc": 0.5,
+                    "upVelocityAcc": 0.5
+                },
+                "Cloud": {
+                    "eastAcc": 0.1,
+                    "northAcc": 0.1,
+                    "upAcc": 0.1,
+                    "eastVelocityAcc": 0.5,
+                    "northVelocityAcc": 0.5,
+                    "upVelocityAcc": 0.5
+                },
+                "sectorNum": 3
+            }
+        }
+    },
+    "sensors": {
+        "Cloud": [
+            {
+                "aircraft": {
+                    "uaIdType": "ANSI/CTA-2063-B",
+                    "aircraftType": "Helicopter (or Multirotor)",
+                    "aircraftAlias": "",
+                    "uasId": "2076test000000000001"
+                },
+                "connection": {
+                    "macAddress": "60:60:1f:2a:11:1",
+                    "lastSeen": 0,
+                    "firstSeen": 0,
+                    "signalStrength": -64,
+                    "connectionType": "WIFI6",
+                    "msgDelay": 0,
+                    "timestamp": 7
+                },
+                "imei": "",
+                "location": {
+                    "pressureAltitude": 501.5,
+                    "verticalSpeedAccuracy": "<3 m/s",
+                    "flyStatus": "Ground",
+                    "latitude": 39.4875780,
+                    "barometerAccuracy": ">150 m",
+                    "horizontalSpeedAccuracy": "<3 m/s",
+                    "horizontalSpeed": 1.418,
+                    "distanceFromMe": 0,
+                    "relativeHeight": 9.9,
+                    "geodeticAltitude": 474.5,
+                    "verticalSpeed": 0,
+                    "direction": 142,
+                    "longitude": 117.0435913,
+                    "timestamp": 7
+                },
+                "sn": "20740000000000000001",
+                "time": 0,
+                "droneOperator": {
+                    "areaCount": 1,
+                    "areaCeiling": -1000,
+                    "areaFloor": -1000,
+                    "latitude": 39.48736,
+                    "locationType": "Dynamic",
+                    "geodeticAltitude": 485,
+                    "areaRadius": 0,
+                    "category": "Undefined",
+                    "classification": "Reserved",
+                    "class": "Class 0",
+                    "operatorId": "",
+                    "longitude": 117.0436913
+                },
+                "uploadBy": "2074FGL125224133219A"
+            },
+            {
+                "aircraft": {
+                    "uaIdType": "ANSI/CTA-2063-B",
+                    "aircraftType": "Helicopter (or Multirotor)",
+                    "aircraftAlias": "",
+                    "uasId": "2076test000000000001"
+                },
+                "connection": {
+                    "macAddress": "60:60:1f:2a:11:1",
+                    "lastSeen": 0,
+                    "firstSeen": 0,
+                    "signalStrength": -64,
+                    "connectionType": "WIFI6",
+                    "msgDelay": 0,
+                    "timestamp": 8
+                },
+                "imei": "",
+                "location": {
+                    "pressureAltitude": 501.5,
+                    "verticalSpeedAccuracy": "<3 m/s",
+                    "flyStatus": "Ground",
+                    "latitude": 39.4875679,
+                    "barometerAccuracy": ">150 m",
+                    "horizontalSpeedAccuracy": "<3 m/s",
+                    "horizontalSpeed": 1.332,
+                    "distanceFromMe": 0,
+                    "relativeHeight": 9.9,
+                    "geodeticAltitude": 474.5,
+                    "verticalSpeed": 0,
+                    "direction": 143,
+                    "longitude": 117.0436014,
+                    "timestamp": 8
+                },
+                "sn": "20740000000000000001",
+                "time": 0,
+                "droneOperator": {
+                    "areaCount": 1,
+                    "areaCeiling": -1000,
+                    "areaFloor": -1000,
+                    "latitude": 39.48736,
+                    "locationType": "Dynamic",
+                    "geodeticAltitude": 485,
+                    "areaRadius": 0,
+                    "category": "Undefined",
+                    "classification": "Reserved",
+                    "class": "Class 0",
+                    "operatorId": "",
+                    "longitude": 117.0436913
+                },
+                "uploadBy": "2074FGL125224133219A"
+            },
+            {
+                "aircraft": {
+                    "uaIdType": "ANSI/CTA-2063-B",
+                    "aircraftType": "Helicopter (or Multirotor)",
+                    "aircraftAlias": "",
+                    "uasId": "2076test000000000001"
+                },
+                "connection": {
+                    "macAddress": "60:60:1f:2a:11:1",
+                    "lastSeen": 0,
+                    "firstSeen": 0,
+                    "signalStrength": -64,
+                    "connectionType": "WIFI6",
+                    "msgDelay": 0,
+                    "timestamp": 9
+                },
+                "imei": "",
+                "location": {
+                    "pressureAltitude": 501.5,
+                    "verticalSpeedAccuracy": "<3 m/s",
+                    "flyStatus": "Ground",
+                    "latitude": 39.4875583,
+                    "barometerAccuracy": ">150 m",
+                    "horizontalSpeedAccuracy": "<3 m/s",
+                    "horizontalSpeed": 1.421,
+                    "distanceFromMe": 0,
+                    "relativeHeight": 9.9,
+                    "geodeticAltitude": 474.5,
+                    "verticalSpeed": 0,
+                    "direction": 141,
+                    "longitude": 117.0436107,
+                    "timestamp": 9
+                },
+                "sn": "20740000000000000001",
+                "time": 0,
+                "droneOperator": {
+                    "areaCount": 1,
+                    "areaCeiling": -1000,
+                    "areaFloor": -1000,
+                    "latitude": 39.48736,
+                    "locationType": "Dynamic",
+                    "geodeticAltitude": 485,
+                    "areaRadius": 0,
+                    "category": "Undefined",
+                    "classification": "Reserved",
+                    "class": "Class 0",
+                    "operatorId": "",
+                    "longitude": 117.0436913
+                },
+                "uploadBy": "2074FGL125224133219A"
+            }
+        ],
+        "FlightControl": [
+            {
+                "timestamp": 0,
+                "yaw": 0,
+                "pitch": 0,
+                "roll": 0
+            },
+            {
+                "timestamp": 1,
+                "yaw": 0,
+                "pitch": 0,
+                "roll": 0
+            },
+            {
+                "timestamp": 2,
+                "yaw": 0,
+                "pitch": 0,
+                "roll": 0
+            },
+            {
+                "timestamp": 3,
+                "yaw": 0,
+                "pitch": 0,
+                "roll": 0
+            },
+            {
+                "timestamp": 4,
+                "yaw": 0,
+                "pitch": 0,
+                "roll": 0
+            },
+            {
+                "timestamp": 5,
+                "yaw": 0,
+                "pitch": 0,
+                "roll": 0
+            },
+            {
+                "timestamp": 6,
+                "yaw": 0,
+                "pitch": 0,
+                "roll": 0
+            },
+            {
+                "timestamp": 7,
+                "yaw": 0,
+                "pitch": 0,
+                "roll": 0
+            },
+            {
+                "timestamp": 8,
+                "yaw": 0,
+                "pitch": 0,
+                "roll": 0
+            },
+            {
+                "timestamp": 9,
+                "yaw": 0,
+                "pitch": 0,
+                "roll": 0
+            }
+        ],
+        "Radar": [
+            {
+                "timestamp": 7,
+                "range": 18.747,
+                "azimuth": -27.33,
+                "elevation": 0
+            },
+            {
+                "timestamp": 8,
+                "range": 16.692,
+                "azimuth": -27.65,
+                "elevation": 0
+            },
+            {
+                "timestamp": 9,
+                "range": 14.145,
+                "azimuth": -29.37,
+                "elevation": 0
+            }
+        ],
+        "Track": [
+            {
+                "aircraft": {
+                    "uaIdType": "ANSI/CTA-2063-A",
+                    "aircraftType": "Helicopter (or Multirotor)",
+                    "aircraftAlias": "",
+                    "uasId": "2076test000000000001"
+                },
+                "connection": {
+                    "macAddress": "60:60:1f:2a:11:1",
+                    "lastSeen": 0,
+                    "firstSeen": 0,
+                    "signalStrength": -64,
+                    "connectionType": "WIFI6",
+                    "msgDelay": 0,
+                    "timestamp": 0
+                },
+                "imei": "",
+                "location": {
+                    "pressureAltitude": 501.5,
+                    "verticalSpeedAccuracy": "<3 m/s",
+                    "flyStatus": "Ground",
+                    "latitude": 39.4873543,
+                    "barometerAccuracy": ">150 m",
+                    "horizontalSpeedAccuracy": "<3 m/s",
+                    "horizontalSpeed": 1.23,
+                    "distanceFromMe": 0,
+                    "relativeHeight": 10,
+                    "geodeticAltitude": 474.5,
+                    "verticalSpeed": 0,
+                    "direction": 0,
+                    "longitude": 117.0436913,
+                    "timestamp": 0
+                },
+                "sn": "20740000000000000001",
+                "time": 0,
+                "droneOperator": {
+                    "areaCount": 1,
+                    "areaCeiling": -1000,
+                    "areaFloor": -1000,
+                    "latitude": 39.48736,
+                    "locationType": "Dynamic",
+                    "geodeticAltitude": 485,
+                    "areaRadius": 0,
+                    "category": "Undefined",
+                    "classification": "Reserved",
+                    "class": "Class 0",
+                    "operatorId": "",
+                    "longitude": 117.0436913
+                },
+                "uploadBy": "2074FGL125224133219A"
+            },
+            {
+                "aircraft": {
+                    "uaIdType": "ANSI/CTA-2063-A",
+                    "aircraftType": "Helicopter (or Multirotor)",
+                    "aircraftAlias": "",
+                    "uasId": "2076test000000000001"
+                },
+                "connection": {
+                    "macAddress": "60:60:1f:2a:11:1",
+                    "lastSeen": 0,
+                    "firstSeen": 0,
+                    "signalStrength": -64,
+                    "connectionType": "WIFI6",
+                    "msgDelay": 0,
+                    "timestamp": 0
+                },
+                "imei": "",
+                "location": {
+                    "pressureAltitude": 501.5,
+                    "verticalSpeedAccuracy": "<3 m/s",
+                    "flyStatus": "Ground",
+                    "latitude": 39.4873654,
+                    "barometerAccuracy": ">150 m",
+                    "horizontalSpeedAccuracy": "<3 m/s",
+                    "horizontalSpeed": 0.59,
+                    "distanceFromMe": 0,
+                    "relativeHeight": 10,
+                    "geodeticAltitude": 474.5,
+                    "verticalSpeed": 0,
+                    "direction": 0,
+                    "longitude": 117.0436913,
+                    "timestamp": 1
+                },
+                "sn": "20740000000000000001",
+                "time": 1,
+                "droneOperator": {
+                    "areaCount": 1,
+                    "areaCeiling": -1000,
+                    "areaFloor": -1000,
+                    "latitude": 39.48736,
+                    "locationType": "Dynamic",
+                    "geodeticAltitude": 485,
+                    "areaRadius": 0,
+                    "category": "Undefined",
+                    "classification": "Reserved",
+                    "class": "Class 0",
+                    "operatorId": "",
+                    "longitude": 117.0436913
+                },
+                "uploadBy": "2074FGL125224133219A"
+            },
+            {
+                "aircraft": {
+                    "uaIdType": "ANSI/CTA-2063-A",
+                    "aircraftType": "Helicopter (or Multirotor)",
+                    "aircraftAlias": "",
+                    "uasId": "2076test000000000001"
+                },
+                "connection": {
+                    "macAddress": "60:60:1f:2a:11:1",
+                    "lastSeen": 0,
+                    "firstSeen": 0,
+                    "signalStrength": -64,
+                    "connectionType": "WIFI6",
+                    "msgDelay": 0,
+                    "timestamp": 0
+                },
+                "imei": "",
+                "location": {
+                    "pressureAltitude": 501.5,
+                    "verticalSpeedAccuracy": "<3 m/s",
+                    "flyStatus": "Ground",
+                    "latitude": 39.4873707,
+                    "barometerAccuracy": ">150 m",
+                    "horizontalSpeedAccuracy": "<3 m/s",
+                    "horizontalSpeed": 1.65,
+                    "distanceFromMe": 0,
+                    "relativeHeight": 10,
+                    "geodeticAltitude": 474.5,
+                    "verticalSpeed": 0,
+                    "direction": 0,
+                    "longitude": 117.0436913,
+                    "timestamp": 2
+                },
+                "sn": "20740000000000000001",
+                "time": 2,
+                "droneOperator": {
+                    "areaCount": 1,
+                    "areaCeiling": -1000,
+                    "areaFloor": -1000,
+                    "latitude": 39.48736,
+                    "locationType": "Dynamic",
+                    "geodeticAltitude": 485,
+                    "areaRadius": 0,
+                    "category": "Undefined",
+                    "classification": "Reserved",
+                    "class": "Class 0",
+                    "operatorId": "",
+                    "longitude": 117.0436913
+                },
+                "uploadBy": "2074FGL125224133219A"
+            },
+            {
+                "aircraft": {
+                    "uaIdType": "ANSI/CTA-2063-A",
+                    "aircraftType": "Helicopter (or Multirotor)",
+                    "aircraftAlias": "",
+                    "uasId": "2076test000000000001"
+                },
+                "connection": {
+                    "macAddress": "60:60:1f:2a:11:1",
+                    "lastSeen": 0,
+                    "firstSeen": 0,
+                    "signalStrength": -64,
+                    "connectionType": "WIFI6",
+                    "msgDelay": 0,
+                    "timestamp": 0
+                },
+                "imei": "",
+                "location": {
+                    "pressureAltitude": 501.5,
+                    "verticalSpeedAccuracy": "<3 m/s",
+                    "flyStatus": "Ground",
+                    "latitude": 39.4873856,
+                    "barometerAccuracy": ">150 m",
+                    "horizontalSpeedAccuracy": "<3 m/s",
+                    "horizontalSpeed": 1.18,
+                    "distanceFromMe": 0,
+                    "relativeHeight": 10,
+                    "geodeticAltitude": 474.5,
+                    "verticalSpeed": 0,
+                    "direction": 0,
+                    "longitude": 117.0436913,
+                    "timestamp": 3
+                },
+                "sn": "20740000000000000001",
+                "time": 3,
+                "droneOperator": {
+                    "areaCount": 1,
+                    "areaCeiling": -1000,
+                    "areaFloor": -1000,
+                    "latitude": 39.48736,
+                    "locationType": "Dynamic",
+                    "geodeticAltitude": 485,
+                    "areaRadius": 0,
+                    "category": "Undefined",
+                    "classification": "Reserved",
+                    "class": "Class 0",
+                    "operatorId": "",
+                    "longitude": 117.0436913
+                },
+                "uploadBy": "2074FGL125224133219A"
+            },
+            {
+                "aircraft": {
+                    "uaIdType": "ANSI/CTA-2063-A",
+                    "aircraftType": "Helicopter (or Multirotor)",
+                    "aircraftAlias": "",
+                    "uasId": "2076test000000000001"
+                },
+                "connection": {
+                    "macAddress": "60:60:1f:2a:11:1",
+                    "lastSeen": 0,
+                    "firstSeen": 0,
+                    "signalStrength": -64,
+                    "connectionType": "WIFI6",
+                    "msgDelay": 0,
+                    "timestamp": 0
+                },
+                "imei": "",
+                "location": {
+                    "pressureAltitude": 501.5,
+                    "verticalSpeedAccuracy": "<3 m/s",
+                    "flyStatus": "Ground",
+                    "latitude": 39.4873962,
+                    "barometerAccuracy": ">150 m",
+                    "horizontalSpeedAccuracy": "<3 m/s",
+                    "horizontalSpeed": 0.9,
+                    "distanceFromMe": 0,
+                    "relativeHeight": 10,
+                    "geodeticAltitude": 474.5,
+                    "verticalSpeed": 0,
+                    "direction": 0,
+                    "longitude": 117.0436913,
+                    "timestamp": 4
+                },
+                "sn": "20740000000000000001",
+                "time": 4,
+                "droneOperator": {
+                    "areaCount": 1,
+                    "areaCeiling": -1000,
+                    "areaFloor": -1000,
+                    "latitude": 39.48736,
+                    "locationType": "Dynamic",
+                    "geodeticAltitude": 485,
+                    "areaRadius": 0,
+                    "category": "Undefined",
+                    "classification": "Reserved",
+                    "class": "Class 0",
+                    "operatorId": "",
+                    "longitude": 117.0436913
+                },
+                "uploadBy": "2074FGL125224133219A"
+            },
+            {
+                "aircraft": {
+                    "uaIdType": "ANSI/CTA-2063-A",
+                    "aircraftType": "Helicopter (or Multirotor)",
+                    "aircraftAlias": "",
+                    "uasId": "2076test000000000001"
+                },
+                "connection": {
+                    "macAddress": "60:60:1f:2a:11:1",
+                    "lastSeen": 0,
+                    "firstSeen": 0,
+                    "signalStrength": -64,
+                    "connectionType": "WIFI6",
+                    "msgDelay": 0,
+                    "timestamp": 0
+                },
+                "imei": "",
+                "location": {
+                    "pressureAltitude": 501.5,
+                    "verticalSpeedAccuracy": "<3 m/s",
+                    "flyStatus": "Ground",
+                    "latitude": 39.4874043,
+                    "barometerAccuracy": ">150 m",
+                    "horizontalSpeedAccuracy": "<3 m/s",
+                    "horizontalSpeed": 0.75,
+                    "distanceFromMe": 0,
+                    "relativeHeight": 10,
+                    "geodeticAltitude": 474.5,
+                    "verticalSpeed": 0,
+                    "direction": 0,
+                    "longitude": 117.0436913,
+                    "timestamp": 5
+                },
+                "sn": "20740000000000000001",
+                "time": 5,
+                "droneOperator": {
+                    "areaCount": 1,
+                    "areaCeiling": -1000,
+                    "areaFloor": -1000,
+                    "latitude": 39.48736,
+                    "locationType": "Dynamic",
+                    "geodeticAltitude": 485,
+                    "areaRadius": 0,
+                    "category": "Undefined",
+                    "classification": "Reserved",
+                    "class": "Class 0",
+                    "operatorId": "",
+                    "longitude": 117.0436913
+                },
+                "uploadBy": "2074FGL125224133219A"
+            },
+            {
+                "aircraft": {
+                    "uaIdType": "ANSI/CTA-2063-A",
+                    "aircraftType": "Helicopter (or Multirotor)",
+                    "aircraftAlias": "",
+                    "uasId": "2076test000000000001"
+                },
+                "connection": {
+                    "macAddress": "60:60:1f:2a:11:1",
+                    "lastSeen": 0,
+                    "firstSeen": 0,
+                    "signalStrength": -64,
+                    "connectionType": "WIFI6",
+                    "msgDelay": 0,
+                    "timestamp": 0
+                },
+                "imei": "",
+                "location": {
+                    "pressureAltitude": 501.5,
+                    "verticalSpeedAccuracy": "<3 m/s",
+                    "flyStatus": "Ground",
+                    "latitude": 39.4874111,
+                    "barometerAccuracy": ">150 m",
+                    "horizontalSpeedAccuracy": "<3 m/s",
+                    "horizontalSpeed": 1.87,
+                    "distanceFromMe": 0,
+                    "relativeHeight": 10,
+                    "geodeticAltitude": 474.5,
+                    "verticalSpeed": 0,
+                    "direction": 0,
+                    "longitude": 117.0436913,
+                    "timestamp": 6
+                },
+                "sn": "20740000000000000001",
+                "time": 6,
+                "droneOperator": {
+                    "areaCount": 1,
+                    "areaCeiling": -1000,
+                    "areaFloor": -1000,
+                    "latitude": 39.48736,
+                    "locationType": "Dynamic",
+                    "geodeticAltitude": 485,
+                    "areaRadius": 0,
+                    "category": "Undefined",
+                    "classification": "Reserved",
+                    "class": "Class 0",
+                    "operatorId": "",
+                    "longitude": 117.0436913
+                },
+                "uploadBy": "2074FGL125224133219A"
+            },
+            {
+                "aircraft": {
+                    "uaIdType": "ANSI/CTA-2063-A",
+                    "aircraftType": "Helicopter (or Multirotor)",
+                    "aircraftAlias": "",
+                    "uasId": "2076test000000000001"
+                },
+                "connection": {
+                    "macAddress": "60:60:1f:2a:11:1",
+                    "lastSeen": 0,
+                    "firstSeen": 0,
+                    "signalStrength": -64,
+                    "connectionType": "WIFI6",
+                    "msgDelay": 0,
+                    "timestamp": 0
+                },
+                "imei": "",
+                "location": {
+                    "pressureAltitude": 501.5,
+                    "verticalSpeedAccuracy": "<3 m/s",
+                    "flyStatus": "Ground",
+                    "latitude": 39.4874279,
+                    "barometerAccuracy": ">150 m",
+                    "horizontalSpeedAccuracy": "<3 m/s",
+                    "horizontalSpeed": 0.74,
+                    "distanceFromMe": 0,
+                    "relativeHeight": 10,
+                    "geodeticAltitude": 474.5,
+                    "verticalSpeed": 0,
+                    "direction": 0,
+                    "longitude": 117.0436913,
+                    "timestamp": 7
+                },
+                "sn": "20740000000000000001",
+                "time": 7,
+                "droneOperator": {
+                    "areaCount": 1,
+                    "areaCeiling": -1000,
+                    "areaFloor": -1000,
+                    "latitude": 39.48736,
+                    "locationType": "Dynamic",
+                    "geodeticAltitude": 485,
+                    "areaRadius": 0,
+                    "category": "Undefined",
+                    "classification": "Reserved",
+                    "class": "Class 0",
+                    "operatorId": "",
+                    "longitude": 117.0436913
+                },
+                "uploadBy": "2074FGL125224133219A"
+            },
+            {
+                "aircraft": {
+                    "uaIdType": "ANSI/CTA-2063-A",
+                    "aircraftType": "Helicopter (or Multirotor)",
+                    "aircraftAlias": "",
+                    "uasId": "2076test000000000001"
+                },
+                "connection": {
+                    "macAddress": "60:60:1f:2a:11:1",
+                    "lastSeen": 0,
+                    "firstSeen": 0,
+                    "signalStrength": -64,
+                    "connectionType": "WIFI6",
+                    "msgDelay": 0,
+                    "timestamp": 0
+                },
+                "imei": "",
+                "location": {
+                    "pressureAltitude": 501.5,
+                    "verticalSpeedAccuracy": "<3 m/s",
+                    "flyStatus": "Ground",
+                    "latitude": 39.4874346,
+                    "barometerAccuracy": ">150 m",
+                    "horizontalSpeedAccuracy": "<3 m/s",
+                    "horizontalSpeed": 1.4,
+                    "distanceFromMe": 0,
+                    "relativeHeight": 10,
+                    "geodeticAltitude": 474.5,
+                    "verticalSpeed": 0,
+                    "direction": 0,
+                    "longitude": 117.0436913,
+                    "timestamp": 8
+                },
+                "sn": "20740000000000000001",
+                "time": 8,
+                "droneOperator": {
+                    "areaCount": 1,
+                    "areaCeiling": -1000,
+                    "areaFloor": -1000,
+                    "latitude": 39.48736,
+                    "locationType": "Dynamic",
+                    "geodeticAltitude": 485,
+                    "areaRadius": 0,
+                    "category": "Undefined",
+                    "classification": "Reserved",
+                    "class": "Class 0",
+                    "operatorId": "",
+                    "longitude": 117.0436913
+                },
+                "uploadBy": "2074FGL125224133219A"
+            },
+            {
+                "aircraft": {
+                    "uaIdType": "ANSI/CTA-2063-A",
+                    "aircraftType": "Helicopter (or Multirotor)",
+                    "aircraftAlias": "",
+                    "uasId": "2076test000000000001"
+                },
+                "connection": {
+                    "macAddress": "60:60:1f:2a:11:1",
+                    "lastSeen": 0,
+                    "firstSeen": 0,
+                    "signalStrength": -64,
+                    "connectionType": "WIFI6",
+                    "msgDelay": 0,
+                    "timestamp": 0
+                },
+                "imei": "",
+                "location": {
+                    "pressureAltitude": 501.5,
+                    "verticalSpeedAccuracy": "<3 m/s",
+                    "flyStatus": "Ground",
+                    "latitude": 39.4874472,
+                    "barometerAccuracy": ">150 m",
+                    "horizontalSpeedAccuracy": "<3 m/s",
+                    "horizontalSpeed": 1.1,
+                    "distanceFromMe": 0,
+                    "relativeHeight": 10,
+                    "geodeticAltitude": 474.5,
+                    "verticalSpeed": 0,
+                    "direction": 0,
+                    "longitude": 117.0436913,
+                    "timestamp": 9
+                },
+                "sn": "20740000000000000001",
+                "time": 9,
+                "droneOperator": {
+                    "areaCount": 1,
+                    "areaCeiling": -1000,
+                    "areaFloor": -1000,
+                    "latitude": 39.48736,
+                    "locationType": "Dynamic",
+                    "geodeticAltitude": 485,
+                    "areaRadius": 0,
+                    "category": "Undefined",
+                    "classification": "Reserved",
+                    "class": "Class 0",
+                    "operatorId": "",
+                    "longitude": 117.0436913
+                },
+                "uploadBy": "2074FGL125224133219A"
+            }
+        ],
+        "UWB": [
+            {
+                "timestamp": 7,
+                "range": 18.8,
+                "azimuth": -28.33,
+                "elevation": 0
+            },
+            {
+                "timestamp": 8,
+                "range": 16.4,
+                "azimuth": -27.75,
+                "elevation": 0
+            },
+            {
+                "timestamp": 9,
+                "range": 14.5,
+                "azimuth": -28.99,
+                "elevation": 0
+            }
+        ]
+    }
+}
