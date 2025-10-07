@@ -1,0 +1,20 @@
+[
+  {
+    "timestamp": 7,
+    "range": 18.747,
+    "azimuth": -27.33,
+    "elevation": 0
+  },
+  {
+    "timestamp": 8,
+    "range": 16.692,
+    "azimuth": -27.65,
+    "elevation": 0
+  },
+  {
+    "timestamp": 9,
+    "range": 14.145,
+    "azimuth": -29.37,
+    "elevation": 0
+  }
+]

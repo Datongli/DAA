@@ -1,0 +1,32 @@
+env:
+  num_envs: 1
+utmZone: 50N
+id: UAV01
+sensors:
+- Radar
+- UWB
+- Track
+- Cloud
+Radar:
+  rangeAcc: 0.1
+  azimuthAcc: 1
+  elevationAcc: 2
+UWB:
+  rangeAcc: 0.1
+  azimuthAcc: 1
+  elevationAcc: 2
+Track:
+  eastAcc: 0.1
+  northAcc: 0.1
+  upAcc: 0.1
+  eastVelocityAcc: 0.5
+  northVelocityAcc: 0.5
+  upVelocityAcc: 0.5
+Cloud:
+  eastAcc: 0.1
+  northAcc: 0.1
+  upAcc: 0.1
+  eastVelocityAcc: 0.5
+  northVelocityAcc: 0.5
+  upVelocityAcc: 0.5
+sectorNum: 3
