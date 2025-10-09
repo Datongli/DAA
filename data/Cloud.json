@@ -1,0 +1,155 @@
+[
+  {
+    "aircraft": {
+      "uaIdType": "ANSI/CTA-2063-B",
+      "aircraftType": "Helicopter (or Multirotor)",
+      "aircraftAlias": "",
+      "uasId": "2076test000000000001"
+    },
+    "connection": {
+      "macAddress": "60:60:1f:2a:11:1",
+      "lastSeen": 0,
+      "firstSeen": 0,
+      "signalStrength": -64,
+      "connectionType": "WIFI6",
+      "msgDelay": 0,
+      "timestamp": 7
+    },
+    "imei": "",
+    "location": {
+      "pressureAltitude": 501.5,
+      "verticalSpeedAccuracy": "<3 m/s",
+      "flyStatus": "Ground",
+      "latitude": 39.487578,
+      "barometerAccuracy": ">150 m",
+      "horizontalSpeedAccuracy": "<3 m/s",
+      "horizontalSpeed": 1.418,
+      "distanceFromMe": 0,
+      "relativeHeight": 9.9,
+      "geodeticAltitude": 474.5,
+      "verticalSpeed": 0,
+      "direction": 142,
+      "longitude": 117.0435913,
+      "timestamp": 7
+    },
+    "sn": "20740000000000000001",
+    "time": 0,
+    "droneOperator": {
+      "areaCount": 1,
+      "areaCeiling": -1000,
+      "areaFloor": -1000,
+      "latitude": 39.48736,
+      "locationType": "Dynamic",
+      "geodeticAltitude": 485,
+      "areaRadius": 0,
+      "category": "Undefined",
+      "classification": "Reserved",
+      "class": "Class 0",
+      "operatorId": "",
+      "longitude": 117.0436913
+    },
+    "uploadBy": "2074FGL125224133219A"
+  },
+  {
+    "aircraft": {
+      "uaIdType": "ANSI/CTA-2063-B",
+      "aircraftType": "Helicopter (or Multirotor)",
+      "aircraftAlias": "",
+      "uasId": "2076test000000000001"
+    },
+    "connection": {
+      "macAddress": "60:60:1f:2a:11:1",
+      "lastSeen": 0,
+      "firstSeen": 0,
+      "signalStrength": -64,
+      "connectionType": "WIFI6",
+      "msgDelay": 0,
+      "timestamp": 8
+    },
+    "imei": "",
+    "location": {
+      "pressureAltitude": 501.5,
+      "verticalSpeedAccuracy": "<3 m/s",
+      "flyStatus": "Ground",
+      "latitude": 39.4875679,
+      "barometerAccuracy": ">150 m",
+      "horizontalSpeedAccuracy": "<3 m/s",
+      "horizontalSpeed": 1.332,
+      "distanceFromMe": 0,
+      "relativeHeight": 9.9,
+      "geodeticAltitude": 474.5,
+      "verticalSpeed": 0,
+      "direction": 143,
+      "longitude": 117.0436014,
+      "timestamp": 8
+    },
+    "sn": "20740000000000000001",
+    "time": 0,
+    "droneOperator": {
+      "areaCount": 1,
+      "areaCeiling": -1000,
+      "areaFloor": -1000,
+      "latitude": 39.48736,
+      "locationType": "Dynamic",
+      "geodeticAltitude": 485,
+      "areaRadius": 0,
+      "category": "Undefined",
+      "classification": "Reserved",
+      "class": "Class 0",
+      "operatorId": "",
+      "longitude": 117.0436913
+    },
+    "uploadBy": "2074FGL125224133219A"
+  },
+  {
+    "aircraft": {
+      "uaIdType": "ANSI/CTA-2063-B",
+      "aircraftType": "Helicopter (or Multirotor)",
+      "aircraftAlias": "",
+      "uasId": "2076test000000000001"
+    },
+    "connection": {
+      "macAddress": "60:60:1f:2a:11:1",
+      "lastSeen": 0,
+      "firstSeen": 0,
+      "signalStrength": -64,
+      "connectionType": "WIFI6",
+      "msgDelay": 0,
+      "timestamp": 9
+    },
+    "imei": "",
+    "location": {
+      "pressureAltitude": 501.5,
+      "verticalSpeedAccuracy": "<3 m/s",
+      "flyStatus": "Ground",
+      "latitude": 39.4875583,
+      "barometerAccuracy": ">150 m",
+      "horizontalSpeedAccuracy": "<3 m/s",
+      "horizontalSpeed": 1.421,
+      "distanceFromMe": 0,
+      "relativeHeight": 9.9,
+      "geodeticAltitude": 474.5,
+      "verticalSpeed": 0,
+      "direction": 141,
+      "longitude": 117.0436107,
+      "timestamp": 9
+    },
+    "sn": "20740000000000000001",
+    "time": 0,
+    "droneOperator": {
+      "areaCount": 1,
+      "areaCeiling": -1000,
+      "areaFloor": -1000,
+      "latitude": 39.48736,
+      "locationType": "Dynamic",
+      "geodeticAltitude": 485,
+      "areaRadius": 0,
+      "category": "Undefined",
+      "classification": "Reserved",
+      "class": "Class 0",
+      "operatorId": "",
+      "longitude": 117.0436913
+    },
+    "uploadBy": "2074FGL125224133219A"
+  }
+]
