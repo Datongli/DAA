@@ -10,7 +10,7 @@ class QLearningAlgorithm(AlgorithmBaseClass):
         self.q_table = {}
         self.alpha = 0.1
         self.gamma = 0.9
-        self.epsilon = 0.0
+        self.epsilon = 0.0 # 纯贪婪策略
 
     def compute_risk_profile(self, *args, **kwargs):
         return None
