@@ -23,7 +23,7 @@ class QLearningAlgorithm(AlgorithmBaseClass):
             round(pitch, 1),
             round(roll, 1),
             round(altitude, 1),
-            round(longitude, 6),   # 经纬度通常保留6位小数
+            round(longitude, 6),   # 经纬度保留6位小数
             round(latitude, 6)
         )
 
