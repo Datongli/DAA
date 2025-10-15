@@ -62,8 +62,20 @@ def DAAmain() -> dict:
     if uav is None:
         return {"error": "No UAVs found in configuration"}
     timeLine = []
+    # 记录每个时间戳的 UAV ENU 轨迹（保证无论入侵者与否都记录）
+    uav_trajectory = []
     for timeStamp, value in data.items():
         actions, riskProfile, uavTrackFiles = uav.update(value)
+        # 记录 UAV 自身 ENU 位置到轨迹列表
+        try:
+            uav_obj = uav[0] if isinstance(uav, list) else uav
+            pos = getattr(uav_obj.ownState, 'position', None)
+            if pos is not None and hasattr(pos, 'east') and hasattr(pos, 'north') and hasattr(pos, 'up'):
+                uav_trajectory.append({'timeStamp': int(timeStamp), 'position': {'east': float(pos.east), 'north': float(pos.north), 'up': float(pos.up)}})
+            else:
+                uav_trajectory.append({'timeStamp': int(timeStamp), 'position': None})
+        except Exception:
+            uav_trajectory.append({'timeStamp': int(timeStamp), 'position': None})
         # 打印无人机当前位置
         if isinstance(uav, list):
             for idx, u in enumerate(uav):
@@ -71,14 +83,28 @@ def DAAmain() -> dict:
         else:
             print(f"UAV position at {timeStamp}: {getattr(uav.ownState, 'position', None)}")
         if not uavTrackFiles:
-            timeLine.append({
+            # 没有入侵者，仍然记录UAV自身ENU位置（如果有）
+            entry = {
                 "timeStamp": timeStamp,
                 "riskProfile": [float(x) for x in (riskProfile if riskProfile is not None else [])],
                 "actions": {
                     "H": actions.horizontal.name if actions and actions.horizontal else "NONE",
                     "V": actions.vertical.name if actions and actions.vertical else "NONE"
                 }
-            })
+            }
+            # UAV ENU位置
+            try:
+                uav_obj = uav[0] if isinstance(uav, list) else uav
+                pos = getattr(uav_obj.ownState, 'position', None)
+                if pos is not None and hasattr(pos, 'east') and hasattr(pos, 'north') and hasattr(pos, 'up'):
+                    entry.setdefault('UAV', {})['position'] = {
+                        'east': float(pos.east),
+                        'north': float(pos.north),
+                        'up': float(pos.up)
+                    }
+            except Exception:
+                pass
+            timeLine.append(entry)
         else:
             # 有入侵者时，每个目标单独一条
             for trackID, trackFiles in uavTrackFiles.items():
@@ -91,6 +117,18 @@ def DAAmain() -> dict:
                     },
                     "trackID": trackID
                 }
+                # 记录 UAV ENU位置（即使有入侵者也记录）
+                try:
+                    uav_obj = uav[0] if isinstance(uav, list) else uav
+                    pos = getattr(uav_obj.ownState, 'position', None)
+                    if pos is not None and hasattr(pos, 'east') and hasattr(pos, 'north') and hasattr(pos, 'up'):
+                        entry.setdefault('UAV', {})['position'] = {
+                            'east': float(pos.east),
+                            'north': float(pos.north),
+                            'up': float(pos.up)
+                        }
+                except Exception:
+                    pass
                 # 各传感器观测
                 for sensorType in ["Cloud", "Radar", "UWB"]:
                     if sensorType in trackFiles:
@@ -105,16 +143,40 @@ def DAAmain() -> dict:
                 # 融合结果
                 fused = uav.targets.get(trackID)
                 if fused:
-                    print(f"fused.position at {timeStamp}: {getattr(fused, 'position', None)}")  # 打印fused.position
-                    # 转换为WGS84
-                    wgs84 = utm_to_wgs84(float(fused.position.east), float(fused.position.north), float(fused.position.up), cfg.utmZone)
-                    entry["comprehensive"] = {
-                        "longitude": wgs84["longitude"],
-                        "latitude": wgs84["latitude"],
-                        "height": wgs84["height"]
-                    }
+                    # 打印fused.position ENU坐标
+                    try:
+                        if hasattr(fused, 'position') and fused.position is not None:
+                            print(f"fused.position at {timeStamp}: east={getattr(fused.position, 'east', None)}, north={getattr(fused.position, 'north', None)}, up={getattr(fused.position, 'up', None)}")
+                            entry.setdefault('fused', {})['position'] = {
+                                'east': float(fused.position.east),
+                                'north': float(fused.position.north),
+                                'up': float(fused.position.up)
+                            }
+                    except Exception:
+                        pass
+                    # 兼容以前的 comprehensive 字段（WGS84）
+                    try:
+                        wgs84 = utm_to_wgs84(float(fused.position.east), float(fused.position.north), float(fused.position.up), cfg.utmZone)
+                        entry["comprehensive"] = {
+                            "longitude": wgs84["longitude"],
+                            "latitude": wgs84["latitude"],
+                            "height": wgs84["height"]
+                        }
+                    except Exception:
+                        pass
                 timeLine.append(entry)
     daaResult = {"timeline": timeLine}
+    # 附加 UAV 轨迹（逐时间戳），便于可视化直接使用
+    daaResult['uav_trajectory'] = uav_trajectory
+
+    # 写出调试文件，包含完整 timeline，以便离线检查 ENU 字段
+    try:
+        timeline_path = ROOT_DIR / "timeline_debug.json"
+        with open(timeline_path, "w", encoding="utf-8") as tf:
+            json.dump(daaResult, tf, ensure_ascii=False, indent=2)
+        print(f"[debug] timeline written to {timeline_path}")
+    except Exception as _e:
+        print("[debug] failed to write timeline_debug.json", _e)
 
     # === Q-learning集成部分 ===
     import json
