@@ -64,6 +64,12 @@ def DAAmain() -> dict:
     timeLine = []
     for timeStamp, value in data.items():
         actions, riskProfile, uavTrackFiles = uav.update(value)
+        # 打印无人机当前位置
+        if isinstance(uav, list):
+            for idx, u in enumerate(uav):
+                print(f"UAV[{idx}] position at {timeStamp}: {getattr(u.ownState, 'position', None)}")
+        else:
+            print(f"UAV position at {timeStamp}: {getattr(uav.ownState, 'position', None)}")
         if not uavTrackFiles:
             timeLine.append({
                 "timeStamp": timeStamp,
@@ -99,6 +105,7 @@ def DAAmain() -> dict:
                 # 融合结果
                 fused = uav.targets.get(trackID)
                 if fused:
+                    print(f"fused.position at {timeStamp}: {getattr(fused, 'position', None)}")  # 打印fused.position
                     # 转换为WGS84
                     wgs84 = utm_to_wgs84(float(fused.position.east), float(fused.position.north), float(fused.position.up), cfg.utmZone)
                     entry["comprehensive"] = {
@@ -162,9 +169,9 @@ def DAAmain() -> dict:
     )
 
     # 打印Q表
-    print("Q表内容:")
-    for key, value in q_algo.q_table.items():
-        print(f"State-Action: {key}, Q-value: {value}")
+    # print("Q表内容:")
+    # for key, value in q_algo.q_table.items():
+    #     print(f"State-Action: {key}, Q-value: {value}")
 
     # 写入动作到 daaResult
     idx = 0
