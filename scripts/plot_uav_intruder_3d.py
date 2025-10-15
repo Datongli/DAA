@@ -66,62 +66,72 @@ def plot_uav_intruder_3d(timeline):
                 uav_east[i] += offset
                 uav_up[i] += offset * 0.05  # 每帧up增加1米的一半
     
+    # === 轨迹插值部分 ===
+    interp_steps = 10  # 每两个轨迹点之间插值帧数（越大越平滑）
+    def interp_traj(arr):
+        arr = np.array(arr)
+        arr_interp = []
+        for i in range(len(arr)-1):
+            arr_interp.extend(np.linspace(arr[i], arr[i+1], interp_steps, endpoint=False))
+        arr_interp.append(arr[-1])
+        return np.array(arr_interp)
+    # 对UAV和fused轨迹插值
+    uav_east_interp = interp_traj(uav_east)
+    uav_north_interp = interp_traj(uav_north)
+    uav_up_interp = interp_traj(uav_up)
+    fused_east_interp = interp_traj(fused_east)
+    fused_north_interp = interp_traj(fused_north)
+    fused_up_interp = interp_traj(fused_up)
+    total_frames = len(uav_east_interp)
+
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111, projection='3d')
     uav_line, = ax.plot([], [], [], 'bo-', label='UAV')
     fused_line, = ax.plot([], [], [], 'ro-', label='Intruder')
+    uav_point, = ax.plot([], [], [], 'bo', markersize=10)
+    fused_point, = ax.plot([], [], [], 'ro', markersize=10)
     ax.set_xlabel('East')
     ax.set_ylabel('North')
     ax.set_zlabel('Up')
     ax.legend()
-    # 使用最大长度,允许一方数据较少
-    max_len = len(uav_east)
-    if max_len == 0:
-        print('[plot] 没有可用的 ENU 数据:UAV points=', len(uav_east), ' fused points=', len(fused_east))
-        return
-    # 若某一方长度不足,用 NaN 填充以保持帧数一致
-    def pad(arr, n):
-        if len(arr) >= n:
-            return arr
-        a = np.full(n, np.nan)
-        a[:len(arr)] = arr
-        return a
-    uav_east = pad(uav_east, max_len)
-    uav_north = pad(uav_north, max_len)
-    uav_up = pad(uav_up, max_len)
-    fused_east = pad(fused_east, max_len)
-    fused_north = pad(fused_north, max_len)
-    fused_up = pad(fused_up, max_len)
-    # 在图上显示当前 timeStamp
+    ax.set_xlim(503700, 503800)
+    ax.set_ylim(4370860, 4370890)
+    ax.set_zlim(5, 15)
+    ax.dist = 5
     timestamp_text = ax.text2D(0.02, 0.95, '', transform=ax.transAxes)
 
     def init():
-        # 固定East轴范围为503700到503800
-        ax.set_xlim(503700, 503800)
-        # 固定North轴范围为4370860到4370890
-        ax.set_ylim(4370860, 4370890)
-        # 固定纵轴(Up)范围为 5 到 15
-        ax.set_zlim(5, 15)
         uav_line.set_data([], [])
         uav_line.set_3d_properties([])
         fused_line.set_data([], [])
         fused_line.set_3d_properties([])
+        uav_point.set_data([], [])
+        uav_point.set_3d_properties([])
+        fused_point.set_data([], [])
+        fused_point.set_3d_properties([])
         timestamp_text.set_text('')
-        return uav_line, fused_line, timestamp_text
+        return uav_line, fused_line, uav_point, fused_point, timestamp_text
+
     def update(frame):
-        # 对于 NaN 值,plot 会自动中断线段,保留已有轨迹
-        uav_line.set_data(uav_east[:frame+1], uav_north[:frame+1])
-        uav_line.set_3d_properties(uav_up[:frame+1])
-        fused_line.set_data(fused_east[:frame+1], fused_north[:frame+1])
-        fused_line.set_3d_properties(fused_up[:frame+1])
+        # 计算当前属于哪两个原始点之间
+        idx = frame // interp_steps
+        uav_line.set_data(uav_east_interp[:frame+1], uav_north_interp[:frame+1])
+        uav_line.set_3d_properties(uav_up_interp[:frame+1])
+        fused_line.set_data(fused_east_interp[:frame+1], fused_north_interp[:frame+1])
+        fused_line.set_3d_properties(fused_up_interp[:frame+1])
+        uav_point.set_data(uav_east_interp[frame:frame+1], uav_north_interp[frame:frame+1])
+        uav_point.set_3d_properties(uav_up_interp[frame:frame+1])
+        fused_point.set_data(fused_east_interp[frame:frame+1], fused_north_interp[frame:frame+1])
+        fused_point.set_3d_properties(fused_up_interp[frame:frame+1])
         # 显示当前时间戳标签
         try:
-            ts = timestamps[frame]
+            ts = timestamps[idx]
             timestamp_text.set_text(f'timeStamp: {ts}')
         except Exception:
             timestamp_text.set_text('')
-        return uav_line, fused_line, timestamp_text
-    ani = FuncAnimation(fig, update, frames=max_len, init_func=init, blit=True, interval=500, repeat=False)
+        return uav_line, fused_line, uav_point, fused_point, timestamp_text
+
+    ani = FuncAnimation(fig, update, frames=total_frames, init_func=init, blit=True, interval=50, repeat=False)
     plt.show()
 
 if __name__ == "__main__":
