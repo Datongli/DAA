@@ -48,7 +48,7 @@ def plot_uav_intruder_3d(timeline):
     fused_east = np.array(fused_east)
     fused_north = np.array(fused_north)
     fused_up = np.array(fused_up)
-    fig = plt.figure()
+    fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111, projection='3d')
     uav_line, = ax.plot([], [], [], 'bo-', label='UAV')
     fused_line, = ax.plot([], [], [], 'ro-', label='Intruder')
@@ -80,10 +80,8 @@ def plot_uav_intruder_3d(timeline):
     def init():
         # 固定East轴范围为503700到503800
         ax.set_xlim(503700, 503800)
-        # North轴和Up轴仍根据数据自动设置
-        valid_n = np.nanmin(np.vstack([uav_north, fused_north]))
-        valid_N = np.nanmax(np.vstack([uav_north, fused_north]))
-        ax.set_ylim(valid_n, valid_N)
+        # 固定North轴范围为4370860到4370890
+        ax.set_ylim(4370860, 4370890)
         # 固定纵轴（Up）范围为 9 到 11
         ax.set_zlim(9, 11)
         uav_line.set_data([], [])
