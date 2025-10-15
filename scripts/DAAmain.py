@@ -169,15 +169,6 @@ def DAAmain() -> dict:
     # 附加 UAV 轨迹（逐时间戳），便于可视化直接使用
     daaResult['uav_trajectory'] = uav_trajectory
 
-    # 写出调试文件，包含完整 timeline，以便离线检查 ENU 字段
-    try:
-        timeline_path = ROOT_DIR / "timeline_debug.json"
-        with open(timeline_path, "w", encoding="utf-8") as tf:
-            json.dump(daaResult, tf, ensure_ascii=False, indent=2)
-        print(f"[debug] timeline written to {timeline_path}")
-    except Exception as _e:
-        print("[debug] failed to write timeline_debug.json", _e)
-
     # === Q-learning集成部分 ===
     import json
     range_path = ROOT_DIR / "data" / "UWB.json"
