@@ -86,10 +86,11 @@ def plot_uav_intruder_3d(timeline):
 
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111, projection='3d')
-    uav_line, = ax.plot([], [], [], 'bo-', label='UAV')
-    fused_line, = ax.plot([], [], [], 'ro-', label='Intruder')
+    uav_line, = ax.plot([], [], [], 'b-', lw=1, label='UAV')         # 线宽1，更细
+    fused_line, = ax.plot([], [], [], 'r-', lw=1, label='Intruder')  # 线宽1，更细
     uav_point, = ax.plot([], [], [], 'bo', markersize=10)
     fused_point, = ax.plot([], [], [], 'ro', markersize=10)
+    timestamp_marker, = ax.plot([], [], [], marker='^', color='k', markersize=5, linestyle='', label='TimeStamp Point')
     ax.set_xlabel('East')
     ax.set_ylabel('North')
     ax.set_zlabel('Up')
@@ -109,8 +110,10 @@ def plot_uav_intruder_3d(timeline):
         uav_point.set_3d_properties([])
         fused_point.set_data([], [])
         fused_point.set_3d_properties([])
+        timestamp_marker.set_data([], [])
+        timestamp_marker.set_3d_properties([])
         timestamp_text.set_text('')
-        return uav_line, fused_line, uav_point, fused_point, timestamp_text
+        return uav_line, fused_line, uav_point, fused_point, timestamp_text, timestamp_marker
 
     def update(frame):
         # 计算当前属于哪两个原始点之间
@@ -123,13 +126,21 @@ def plot_uav_intruder_3d(timeline):
         uav_point.set_3d_properties(uav_up_interp[frame:frame+1])
         fused_point.set_data(fused_east_interp[frame:frame+1], fused_north_interp[frame:frame+1])
         fused_point.set_3d_properties(fused_up_interp[frame:frame+1])
+        # 找出所有原始时间戳对应的插值帧索引
+        ts_indices = [i * interp_steps for i in range(len(timestamps))]
+        # 只在这些帧上画点
+        marker_x = [uav_east_interp[i] for i in ts_indices if i <= frame]
+        marker_y = [uav_north_interp[i] for i in ts_indices if i <= frame]
+        marker_z = [uav_up_interp[i] for i in ts_indices if i <= frame]
+        timestamp_marker.set_data(marker_x, marker_y)
+        timestamp_marker.set_3d_properties(marker_z)
         # 显示当前时间戳标签
         try:
             ts = timestamps[idx]
             timestamp_text.set_text(f'timeStamp: {ts}')
         except Exception:
             timestamp_text.set_text('')
-        return uav_line, fused_line, uav_point, fused_point, timestamp_text
+        return uav_line, fused_line, uav_point, fused_point, timestamp_text, timestamp_marker
 
     ani = FuncAnimation(fig, update, frames=total_frames, init_func=init, blit=True, interval=50, repeat=False)
     plt.show()
