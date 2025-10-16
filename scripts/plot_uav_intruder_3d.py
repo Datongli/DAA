@@ -96,7 +96,7 @@ def plot_uav_intruder_3d(timeline):
     timestamp_marker, = ax.plot([], [], [], marker='^', color='k', markersize=5, linestyle='', label='TimeStamp Point')
     ax.set_xlabel('East')
     ax.set_ylabel('North')
-    ax.set_zlabel('Up')
+    ax.set_zlabel('HEIGHT')
     ax.legend()
     ax.set_xlim(503700, 503800)
     ax.set_ylim(4370860, 4370890)
