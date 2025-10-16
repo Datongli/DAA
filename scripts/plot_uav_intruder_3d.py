@@ -1,6 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
+import matplotlib
+matplotlib.rcParams['font.sans-serif'] = ['SimHei']  # 或 ['Microsoft YaHei']
+matplotlib.rcParams['axes.unicode_minus'] = False
 
 def plot_uav_intruder_3d(timeline):
     """
@@ -100,6 +103,7 @@ def plot_uav_intruder_3d(timeline):
     ax.set_zlim(5, 15)
     ax.dist = 5
     timestamp_text = ax.text2D(0.02, 0.95, '', transform=ax.transAxes)
+    action_text = ax.text2D(0.75, 0.90, '', transform=ax.transAxes, color='red', fontsize=14)
 
     def init():
         uav_line.set_data([], [])
@@ -113,7 +117,8 @@ def plot_uav_intruder_3d(timeline):
         timestamp_marker.set_data([], [])
         timestamp_marker.set_3d_properties([])
         timestamp_text.set_text('')
-        return uav_line, fused_line, uav_point, fused_point, timestamp_text, timestamp_marker
+        action_text.set_text('')
+        return uav_line, fused_line, uav_point, fused_point, timestamp_text, timestamp_marker, action_text
 
     def update(frame):
         # 计算当前属于哪两个原始点之间
@@ -138,11 +143,19 @@ def plot_uav_intruder_3d(timeline):
         try:
             ts = timestamps[idx]
             timestamp_text.set_text(f'timeStamp: {ts}')
+            # 在时间戳为7的第一个插值帧动图上打印提示并停顿1秒
+            if ts == 7 and frame == ts_indices[idx]:
+                action_text.set_text("发现入侵者, 采取动作:\nTURN_RIGHT_FAST, CLIMB")
+                plt.draw()      # 先刷新画布，确保文字显示
+                plt.pause(2)    # 再停顿2秒
+            else:
+                action_text.set_text('')
         except Exception:
             timestamp_text.set_text('')
-        return uav_line, fused_line, uav_point, fused_point, timestamp_text, timestamp_marker
+            action_text.set_text('')
+        return uav_line, fused_line, uav_point, fused_point, timestamp_text, timestamp_marker, action_text
 
-    ani = FuncAnimation(fig, update, frames=total_frames, init_func=init, blit=True, interval=50, repeat=False)
+    ani = FuncAnimation(fig, update, frames=total_frames, init_func=init, blit=False, interval=50, repeat=False)
     plt.show()
 
 if __name__ == "__main__":
