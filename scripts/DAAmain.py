@@ -42,6 +42,8 @@ def load_cfg_service() -> DictConfig:
 def build_uav(cfg: DictConfig) -> list[UAV]:
     """
     根据配置文件构建无人机
+    :param cfg: 配置文件
+    :return: 无人机列表
     """
     if "UAVs" not in cfg or cfg.UAVs is None:
         return None
@@ -90,7 +92,7 @@ def DAAmain() -> dict:
         })
 
 
-        
+
         if not uavTrackFiles:
             timeLine.append({
                 "timeStamp": timeStamp,

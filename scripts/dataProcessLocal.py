@@ -15,6 +15,8 @@ import numpy as np
 def merge_by_timeStamp(cfg):
     """
     读取所有json文件中的数据，根据时间戳合并
+    :param cfg: 配置参数
+    :return: 合并后的数据
     """
     # 获取项目根目录的绝对路径
     project_root = os.path.dirname(os.path.dirname(__file__))
@@ -47,6 +49,9 @@ def merge_by_timeStamp(cfg):
 def coordinate_transformation(item: dict, utmZone: str) -> tuple[dict, dict]:
     """ 
     将经纬度转换为东北天坐标系下的坐标
+    :param item: 包含经纬度、高度、方向、水平速度、垂直速度的字典
+    :param utmZone: UTM区域号，例如 '50N' / '50S'
+    :return: 包含东北天坐标和速度的元组
     """
     # 提取UTM区域号和半球
     zoneNumber = utmZone[:-1]  # 分离数字部分和半球标识
@@ -70,6 +75,11 @@ def utm_to_wgs84(east: float, north: float, height: float, utmZone: str) -> dict
     UTM (east, north, height) -> WGS84经纬高
     utmZone: 例如 '50N' / '50S'
     返回: {"latitude": lat, "longitude": lon, "height": height}
+    :param east: UTM东坐标
+    :param north: UTM北坐标
+    :param height: 高度
+    :param utmZone: UTM区域号，例如 '50N' / '50S'
+    :return: WGS84经纬高字典
     """
     zoneNumber = utmZone[:-1]
     hemisphereFlag = utmZone[-1].upper()
@@ -87,6 +97,10 @@ def utm_to_wgs84(east: float, north: float, height: float, utmZone: str) -> dict
 def process_track_data(merged: dict, item: dict, utmZone: str) -> None:
     """
     处理Track数据
+    :param merged: 合并后的数据
+    :param item: Track数据项
+    :param utmZone: UTM区域号，例如 '50N' / '50S'
+    :return: None
     """
     timeStamp = item["location"]["timestamp"]  # 时间戳
     if timeStamp not in merged:
@@ -105,6 +119,9 @@ def process_track_data(merged: dict, item: dict, utmZone: str) -> None:
 def process_flight_data(merged: dict, item: dict) -> None:
     """
     处理FlightControl数据，与Track数据合并
+    :param merged: 合并后的数据
+    :param item: FlightControl数据项
+    :return: None
     """
     timeStamp = item["timestamp"]  # 时间戳
     merged[timeStamp]["Track"][0]["yaw"] = np.deg2rad(item["yaw"])
@@ -115,6 +132,10 @@ def process_flight_data(merged: dict, item: dict) -> None:
 def process_cloud_data(merged: dict, item: dict, utmZone: str) -> None:
     """
     处理Cloud数据
+    :param merged: 合并后的数据
+    :param item: Cloud数据项
+    :param utmZone: UTM区域号，例如 '50N' / '50S'
+    :return: None
     """
     timeStamp = item["location"]["timestamp"]  # 时间戳
     UAVID = item["aircraft"]["uaIdType"]  # UAVID
@@ -131,6 +152,9 @@ def process_cloud_data(merged: dict, item: dict, utmZone: str) -> None:
 def process_radar_data(merged: dict, item: dict) -> None:
     """
     处理Radar数据
+    :param merged: 合并后的数据
+    :param item: Radar数据项
+    :return: None
     """
     timeStamp = item["timestamp"]  # 时间戳
     merged[timeStamp]["Radar"].append({
@@ -144,6 +168,9 @@ def process_radar_data(merged: dict, item: dict) -> None:
 def process_uwb_data(merged: dict, item: dict) -> None:
     """
     处理UWB数据
+    :param merged: 合并后的数据
+    :param item: UWB数据项
+    :return: None
     """
     timeStamp = item["timestamp"]  # 时间戳
     merged[timeStamp]["UWB"].append({

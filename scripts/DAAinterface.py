@@ -26,9 +26,12 @@ SENSOR_FILE_MAP = {
 }
 
 
-def safe_write_yaml(path: Path, data: Dict[str, Any]):
+def safe_write_yaml(path: Path, data: Dict[str, Any]) -> None:
     """
     安全地写入yaml文件
+    :param path: 文件路径
+    :param data: 要写入的数据
+    :return: None
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
@@ -38,6 +41,9 @@ def safe_write_yaml(path: Path, data: Dict[str, Any]):
 def merge_yaml(old: Dict[str, Any], new: Dict[str, Any]) -> Dict[str, Any]:
     """
     递归浅合并：new 覆盖 old
+    :param old: 旧数据
+    :param new: 新数据
+    :return: 合并后的数据
     """
     for k, v in new.items():
         if isinstance(v, dict) and isinstance(old.get(k), dict):
@@ -47,9 +53,11 @@ def merge_yaml(old: Dict[str, Any], new: Dict[str, Any]) -> Dict[str, Any]:
     return old
 
 
-def overwrite_configs(configPayload: Dict[str, Any]):
+def overwrite_configs(configPayload: Dict[str, Any]) -> None:
     """
     覆盖写入配置文件
+    :param configPayload: 配置数据
+    :return: None
     """
     if not configPayload:
         return
@@ -73,9 +81,11 @@ def overwrite_configs(configPayload: Dict[str, Any]):
         safe_write_yaml(uav_path, merged)
 
 
-def overwrite_sensor_files(sensorsPayload: Dict[str, Any]):
+def overwrite_sensor_files(sensorsPayload: Dict[str, Any]) -> None:
     """
     覆盖写入传感器数据文件
+    :param sensorsPayload: 传感器数据
+    :return: None
     """
     if not sensorsPayload:
         return
