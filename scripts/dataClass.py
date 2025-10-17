@@ -80,7 +80,7 @@ class CloudData:
 
 class HorizontalAction(Enum):
     """水平动作枚举"""
-    NONE = 0                 # 无动作
+    NONE = 0                      # 无动作
     TURN_LEFT_SLOW = 1            # 左转  至少3度每秒
     TURN_RIGHT_SLOW = 2           # 右转  至少3度每秒
     TURN_LEFT_FAST = 3            # 左转  至少6度每秒

@@ -29,7 +29,12 @@ class ExampleAlgorithm(AlgorithmBaseClass):
         self.cfg = cfg
 
     def select_action(self, ownState: StateEstimate, trackStates: Dict[str, StateEstimate]) -> BlendedAction:
-        """示例算法选择动作，综合所有入侵者，给出环绕一圈的风险评估，选择水平动作"""
+        """
+        示例算法选择动作，综合所有入侵者，给出环绕一圈的风险评估，选择水平动作
+        :param ownState: 无人机自身状态
+        :param trackStates: 所有入侵者的状态
+        :return: 融合动作
+        """
         # 计算每个入侵者的TRM状态
         trmStates = []
         for _, targetState in trackStates.items():
@@ -45,7 +50,12 @@ class ExampleAlgorithm(AlgorithmBaseClass):
         return blendedAction
 
     def _calculate_trm_state(self, ownState: StateEstimate, trackState: StateEstimate) -> TRMState:
-        """计算TRM状态变量"""
+        """
+        计算TRM状态变量
+        :param ownState: 无人机自身状态
+        :param trackState: 入侵者状态
+        :return: TRM状态变量
+        """
         # 计算相对位置和速度
         relativePosition = Position(
             east=trackState.position.east - ownState.position.east,
@@ -103,7 +113,9 @@ class ExampleAlgorithm(AlgorithmBaseClass):
     def compute_risk_profile(self, trmStates: list[TRMState], sectorNum: int = 3) -> Tuple[np.ndarray, List[List[TRMState]]]:
         """
         统计每个扇区的风险值和扇区内入侵者（按距离排序，近的在前）
-        返回: (riskProfile, sectorIntruders)
+        :param trmStates: TRM状态列表
+        :param sectorNum: 扇区数量
+        :return: (riskProfile, sectorIntruders)
         riskProfile: np.ndarray, shape=(sectorNum,)
         sectorIntruders: List[List[TRMState]], 每个扇区一个列表，按距离升序
         """
@@ -123,7 +135,12 @@ class ExampleAlgorithm(AlgorithmBaseClass):
         return riskProfile, sectorIntruders
 
     def _lookup_horizontal_action(self, riskProfile: np.ndarray, sectorIntruders: List[List[TRMState]]) -> HorizontalAction:
-        """查询水平策略表，综合相对方位角、接近时间、相对航迹角"""
+        """
+        查询水平策略表，综合相对方位角、接近时间、相对航迹角
+        :param riskProfile: 风险概况
+        :param sectorIntruders: 每个扇区的入侵者列表
+        :return: 水平动作
+        """
         max_idx = int(np.argmax(riskProfile))
         if not sectorIntruders[max_idx]:
             return HorizontalAction.NONE
@@ -158,7 +175,11 @@ class ExampleAlgorithm(AlgorithmBaseClass):
             return HorizontalAction.NONE
 
     def _lookup_vertical_action(self, trmStates: list[TRMState]) -> VerticalAction:
-        """查询垂直策略表，综合相对高度、接近时间"""
+        """
+        查询垂直策略表，综合相对高度、接近时间
+        :param trmStates: TRM状态列表
+        :return: 垂直动作
+        """
         # 找到timeToVerticalLoss最小且小于阈值的入侵者
         minTime = float('inf')
         threatState = None
@@ -190,6 +211,10 @@ class ExampleAlgorithm(AlgorithmBaseClass):
         return VerticalAction.NONE
 
     def get_risk_profile(self) -> np.ndarray:
+        """
+        获取风险概况
+        :return: 风险概况
+        """
         return self.riskProfile
 
 
