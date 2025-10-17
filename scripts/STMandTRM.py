@@ -9,8 +9,17 @@ from Algorithm import *
 
 
 class TrackFile:
-    """管理单个目标的传感器特定跟踪文件"""
+    """
+    管理单个目标的传感器特定跟踪文件
+    """
     def __init__(self, targetID: float| int| str, sensorType: str, initCovariance: np.ndarray) -> None:
+        """
+        初始化跟踪文件
+        :param targetID: 目标ID
+        :param sensorType: 传感器类型
+        :param initCovariance: 传感器初始协方差
+        :return: None
+        """
         self.targetID: float| int| str = targetID  # 目标ID
         self.sensorType: str = sensorType  # 传感器类型
         self.initCovariance: np.ndarray = initCovariance  # 传感器初始协方差
@@ -19,7 +28,13 @@ class TrackFile:
 
     def update(self, sensorData: CloudData| RadarData| UWBData, ownState: StateEstimate| None = None,
                ownAttitude: Attitude| None = None) -> None:
-        """更新跟踪文件"""
+        """
+        更新跟踪文件状态
+        :param sensorData: 传感器数据
+        :param ownState: 无人机自身状态
+        :param ownAttitude: 无人机自身姿态
+        :return: None
+        """
         if self.kf is None:
             self._init_filter(sensorData, ownState, ownAttitude)
             return
@@ -75,7 +90,13 @@ class TrackFile:
 
     def _init_filter(self, sensorData: CloudData| RadarData| UWBData, ownState: StateEstimate| None = None,
                      ownAttitude: Attitude| None = None) -> None:
-        """初始化卡尔曼滤波器"""
+        """
+        初始化卡尔曼滤波器
+        :param sensorData: 传感器数据
+        :param ownState: 无人机自身状态
+        :param ownAttitude: 无人机自身姿态
+        :return: None
+        """
         if self.sensorType == "Cloud":
             # 直接使用云平台提供的数据
             initState = np.array([
@@ -115,7 +136,12 @@ class TrackFile:
 
     @staticmethod
     def init_kalman_cloud(initState: np.ndarray, initCovariance: np.ndarray) -> KalmanFilter:
-        """静态方法，初始化适用于Cloud的卡尔曼滤波器"""
+        """
+        静态方法，初始化适用于Cloud的卡尔曼滤波器
+        :param initState: 初始状态
+        :param initCovariance: 初始协方差
+        :return: 初始化后的卡尔曼滤波器对象
+        """
         kf = KalmanFilter(dim_x=6, dim_z=6)
         kf.x = initState  # 初始状态
         kf.F = np.array([
@@ -134,7 +160,12 @@ class TrackFile:
 
     @staticmethod
     def init_kalman_radar_or_uwb(initState: np.ndarray, initCovariance: np.ndarray) -> KalmanFilter:
-        """静态方法，初始化适用于Radar或UWB的卡尔曼滤波器"""
+        """
+        静态方法，初始化适用于Radar或UWB的卡尔曼滤波器
+        :param initState: 初始状态
+        :param initCovariance: 初始协方差
+        :return: 初始化后的卡尔曼滤波器对象
+        """
         kf = KalmanFilter(dim_x=6, dim_z=3)
         kf.x = initState  # 初始状态
         kf.F = np.array([
@@ -161,7 +192,13 @@ class TrackFile:
     
     @staticmethod
     def jacobian_enu(range: float| int, azimuth: float| int, elevation: float| int) -> np.ndarray:
-        """静态方法，构造ENU坐标下的雅可比矩阵"""
+        """
+        静态方法，构造ENU坐标下的雅可比矩阵
+        :param range: 距离
+        :param azimuth: 方位角
+        :param elevation: 仰角
+        :return: ENU坐标下的雅可比矩阵
+        """
         J = np.zeros((3, 3))
         J[0, 0] = np.cos(elevation) * np.sin(azimuth)           # dx/dr
         J[1, 0] = np.cos(elevation) * np.cos(azimuth)           # dy/dr
@@ -176,6 +213,13 @@ class TrackFile:
     
     @staticmethod
     def calculate_rotation_matrix(yaw: float, pitch: float, roll: float) -> np.ndarray:
+        """
+        静态方法，计算从机体坐标系到导航坐标系的旋转矩阵
+        :param yaw: 偏航角 (弧度，逆时针为正，0°=北)
+        :param pitch: 俯仰角 (弧度，上仰为正)
+        :param roll: 滚转角 (弧度，右滚为正)
+        :return: 从机体坐标系到导航坐标系的旋转矩阵
+        """
         # 滚转矩阵（绕x轴旋转）
         rRoll = np.array([
             [1, 0, 0],
@@ -284,7 +328,10 @@ class TrackFile:
 
 
     def get_state_estimate(self) -> StateEstimate:
-        """获取当前状态估计"""
+        """
+        获取当前状态估计
+        :return: 当前状态估计对象
+        """
         if self.kf is None:
             return None
         # 提取状态向量和协方差
@@ -303,6 +350,12 @@ class TrackFile:
 class STM:
     """STM类"""
     def __init__(self, ownID: float| int| str, sensors: Dict[str, Sensor]) -> None:
+        """
+        初始化STM对象
+        :param ownID: 无人机自身ID
+        :param sensors: 无人机搭载的传感器字典
+        :return: None
+        """
         self.ownID: float| int| str = ownID  # 无人机自身ID
         self.sensors: Dict[str, Sensor] = sensors  # 无人机搭载的传感器字典
         self.trackFiles: Dict[str, Dict[str, TrackFile]] = {}  # 目标ID -> 跟踪文件集合
@@ -311,14 +364,20 @@ class STM:
         self.ownAttitude: Attitude| None = None  # 无人机自身姿态
 
     def update(self) -> Tuple[None| StateEstimate, Dict[str, StateEstimate]]:
-        """执行完整的STM更新周期"""
+        """
+        执行完整的STM更新周期
+        :return: 无人机自身状态估计和所有目标状态估计字典
+        """
         self._update_own_state()  # 更新自身状态
         self._update_track_files()  # 更新跟踪文件
         self._associate_targets()  # 目标关联
         return self.ownState, self.targets, self.trackFiles
 
     def _update_own_state(self) -> None:
-        """用Track更新自身的状态"""
+        """
+        用Track更新自身的状态估计
+        :return: None
+        """
         # 用Track更新自身状态
         self.ownState = StateEstimate(
             ID=self.ownID,
@@ -335,6 +394,10 @@ class STM:
         )
 
     def _update_track_files(self) -> None:
+        """
+        更新跟踪文件
+        :return: None
+        """
         """数据关联与更新跟踪文件"""
         """使用Cloud查找或创建跟踪文件"""
         for cloudData in self.sensors["Cloud"].data:
@@ -422,7 +485,10 @@ class STM:
         return np.sqrt(d2)
     
     def _associate_targets(self) -> None:
-        """对同一目标的多个TrackFile进行协方差加权融合"""
+        """
+        对同一目标的多个TrackFile进行协方差加权融合
+        :return: None
+        """
         for targetID, trackDict in self.trackFiles.items():
             # 收集所有有效的状态估计
             estimates = [tf.get_state_estimate() for tf in trackDict.values() if tf.get_state_estimate() is not None]   
@@ -465,24 +531,40 @@ class STM:
 class TRM:
     """TRM类，威胁化解模块"""
     def __init__(self, cfg) -> None:
+        """
+        初始化TRM对象
+        :param cfg: 配置参数对象
+        :return: None
+        """
         self.horizontalPolicyTable: Dict = self._init_horizontal_policy_table()
         self.verticalPolicyTable: Dict = self._init_vertical_policy_table()
         self.policy: AlgorithmBaseClass = ExampleAlgorithm(cfg)
 
     def _init_horizontal_policy_table(self) -> dict:
-        """初始化水平威胁化解策略表"""
+        """
+        初始化水平威胁化解策略表
+        :return: 水平威胁化解策略表字典
+        """
         # 实际应用中从文件加载预先计算的水平威胁化解策略表
         # 这里占位使用
         return {}
     
     def _init_vertical_policy_table(self) -> dict:
-        """初始化垂直威胁化解策略表"""
+        """
+        初始化垂直威胁化解策略表
+        :return: 垂直威胁化解策略表字典
+        """
         # 实际应用中从文件加载预先计算的垂直威胁化解策略表
         # 这里占位使用
         return {}
     
     def resolve_threat(self, ownState: StateEstimate, targetStates: Dict[str, StateEstimate]) -> Tuple[BlendedAction, np.ndarray]:
-        """生成避让动作和风险评估"""
+        """
+        生成避让动作和风险评估
+        :param ownState: 无人机自身状态
+        :param targetStates: 所有入侵者的状态
+        :return: 融合动作和风险评估
+        """
         actions = self.policy.select_action(ownState, targetStates)  # 生成避让动作
         riskProfile = self.policy.get_risk_profile()  # 风险评估
         return actions, riskProfile
