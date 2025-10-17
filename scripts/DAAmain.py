@@ -2,6 +2,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 import json
+import numpy as np
 try:
     import hydra
     from omegaconf import OmegaConf, DictConfig
@@ -63,6 +64,33 @@ def DAAmain() -> dict:
     timeLine = []
     for timeStamp, value in data.items():
         actions, riskProfile, uavTrackFiles = uav.update(value)
+
+        # 检查框架有效性使用
+        print({
+            "timeStamp": timeStamp,
+            "coordinate": {
+                "east": uav.ownState.position.east,
+                "north": uav.ownState.position.north,
+                "up": uav.ownState.position.up,
+            },
+            "velocity": {
+                "eastVelocity": uav.ownState.velocity.eastVelocity,
+                "northVelocity": uav.ownState.velocity.northVelocity,
+                "upVelocity": uav.ownState.velocity.upVelocity,
+            },
+            "actions":{
+                "horizontal": actions.horizontal.name if actions and actions.horizontal else "NONE",
+                "vertical": actions.vertical.name if actions and actions.vertical else "NONE",
+            },
+            "attitude": {
+                "yaw": float(getattr(uav.stm.ownAttitude, "yaw", 0.0)),
+                "pitch": float(getattr(uav.stm.ownAttitude, "pitch", 0.0)),
+                "roll": float(getattr(uav.stm.ownAttitude, "roll", 0.0)),
+            }
+        })
+
+
+        
         if not uavTrackFiles:
             timeLine.append({
                 "timeStamp": timeStamp,
