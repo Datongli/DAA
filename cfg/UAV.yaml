@@ -7,12 +7,18 @@ UAVs:
   - Cloud
   Radar:
     rangeAcc: 0.1
+    rangeStd: 0.5
     azimuthAcc: 1
+    azimuthStd: 0.05
     elevationAcc: 2
+    elevationStd: 0.05
   UWB:
     rangeAcc: 0.1
+    rangeStd: 0.3
     azimuthAcc: 1
+    azimuthStd: 0.08
     elevationAcc: 2
+    elevationStd: 0.08
   Track:
     eastAcc: 0.1
     northAcc: 0.1
@@ -28,33 +34,3 @@ UAVs:
     northVelocityAcc: 0.5
     upVelocityAcc: 0.5
   sectorNum: 3
-  UAVs:
-    id: UAV01
-    sensors:
-    - Radar
-    - UWB
-    - Track
-    - Cloud
-    Radar:
-      rangeAcc: 0.1
-      azimuthAcc: 1
-      elevationAcc: 2
-    UWB:
-      rangeAcc: 0.1
-      azimuthAcc: 1
-      elevationAcc: 2
-    Track:
-      eastAcc: 0.1
-      northAcc: 0.1
-      upAcc: 0.1
-      eastVelocityAcc: 0.5
-      northVelocityAcc: 0.5
-      upVelocityAcc: 0.5
-    Cloud:
-      eastAcc: 0.1
-      northAcc: 0.1
-      upAcc: 0.1
-      eastVelocityAcc: 0.5
-      northVelocityAcc: 0.5
-      upVelocityAcc: 0.5
-    sectorNum: 3
