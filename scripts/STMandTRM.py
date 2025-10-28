@@ -215,7 +215,7 @@ class TrackFile:
     def calculate_rotation_matrix(yaw: float, pitch: float, roll: float) -> np.ndarray:
         """
         静态方法，计算从机体坐标系到导航坐标系的旋转矩阵
-        :param yaw: 偏航角 (弧度，逆时针为正，0°=北)
+        :param yaw: 偏航角 (弧度，逆时针为正，0°=正东)
         :param pitch: 俯仰角 (弧度，上仰为正)
         :param roll: 滚转角 (弧度，右滚为正)
         :return: 从机体坐标系到导航坐标系的旋转矩阵
@@ -232,19 +232,19 @@ class TrackFile:
             [0, 1, 0],
             [-np.sin(pitch), 0, np.cos(pitch)]
         ])
-        # 偏航矩阵（绕z轴旋转）
+        # 偏航矩阵（绕z轴旋转，0度=正东）
         rYaw = np.array([
             [np.cos(yaw), -np.sin(yaw), 0],
             [np.sin(yaw), np.cos(yaw), 0],
             [0, 0, 1]
         ])
         # 从机体坐标系到导航坐标系的旋转矩阵
-        rBody2Nav = np.array([
-            [0, 1, 0],   # 机体y轴(右) -> ENU x轴(东)
-            [1, 0, 0],   # 机体x轴(前) -> ENU y轴(北)  
-            [0, 0, -1]   # 机体z轴(下) -> ENU z轴(上，加负号)
+        rBody2ENU = np.array([
+            [1, 0, 0],    # 机体x(前) -> ENU x(东)
+            [0, -1, 0],   # 机体y(右) -> ENU -y(南)
+            [0, 0, -1]    # 机体z(下) -> ENU -z(下)
         ])
-        rTotal = rYaw @ rPitch @ rRoll @ rBody2Nav
+        rTotal = rYaw @ rPitch @ rRoll @ rBody2ENU
         return rTotal
 
     @staticmethod
@@ -326,7 +326,6 @@ class TrackFile:
         J = rTotal @ jBody
         return J
 
-
     def get_state_estimate(self) -> StateEstimate:
         """
         获取当前状态估计
@@ -395,79 +394,279 @@ class STM:
 
     def _update_track_files(self) -> None:
         """
-        更新跟踪文件
+        数据关联与更新跟踪文件
+        处理三种情况：
+        1. 只有Cloud数据
+        2. 只有Radar/UWB数据
+        3. Cloud和Radar/UWB数据都有
         :return: None
         """
-        """数据关联与更新跟踪文件"""
-        """使用Cloud查找或创建跟踪文件"""
-        for cloudData in self.sensors["Cloud"].data:
-            # 跳过自身数据
-            if cloudData.UAVID == self.ownID:
-                continue
-            # 检查是否存在与目标ID相关的跟踪文件
-            if cloudData.UAVID not in self.trackFiles:
-                self.trackFiles[cloudData.UAVID] = {}
-                self.trackFiles[cloudData.UAVID]["Cloud"] = TrackFile(cloudData.UAVID, "Cloud", self.sensors["Cloud"].covariance)
-            # 更新Cloud跟踪文件
-            self.trackFiles[cloudData.UAVID]["Cloud"].update(cloudData)
-        """用Radar或UWB更新其他目标的跟踪文件"""
-        for sensorType in ["Radar", "UWB"]:
-            if sensorType not in self.sensors:
-                continue
+        """第一步：若有，则处理Cloud数据"""
+        cloudTargets = set()  # 记录本次时刻Cloud观测到的目标ID
+        if "Cloud" in self.sensors and len(self.sensors["Cloud"].data) > 0:
             for cloudData in self.sensors["Cloud"].data:
+                # 跳过自身数据
                 if cloudData.UAVID == self.ownID:
                     continue
-                cloudPos = np.array([cloudData.coordinate.east, cloudData.coordinate.north, cloudData.coordinate.up])
-                # 找到与Cloud数据最匹配的Radar/UWB数据
-                mostFitData = min(
-                    self.sensors[sensorType].data,
-                    key=lambda x: np.linalg.norm(
-                        TrackFile.body_to_enu(
-                            x.range, 
-                            x.azimuth, 
-                            x.elevation,
-                            self.ownState.position,
-                            self.ownAttitude.yaw,
-                            self.ownAttitude.pitch, 
-                            self.ownAttitude.roll
-                        ) - cloudPos
+                cloudTargets.add(cloudData.UAVID)
+                # 检查是否存在与目标ID相关的跟踪文件
+                if cloudData.UAVID not in self.trackFiles:
+                    self.trackFiles[cloudData.UAVID] = {}
+                # 创建或更新Cloud跟踪文件
+                if "Cloud" not in self.trackFiles[cloudData.UAVID]:
+                    self.trackFiles[cloudData.UAVID]["Cloud"] = TrackFile(
+                        cloudData.UAVID, 
+                        "Cloud", 
+                        self.sensors["Cloud"].covariance
                     )
+                # 更新Cloud跟踪文件
+                self.trackFiles[cloudData.UAVID]["Cloud"].update(cloudData)
+        """第二步：处理Radar和UWB数据"""
+        for sensorType in ["Radar", "UWB"]:
+            # 检查传感器是否存在且有数据
+            if sensorType not in self.sensors or len(self.sensors[sensorType].data) == 0:
+                continue
+            if len(cloudTargets) > 0:
+                """情况A：有Cloud数据 - 使用Cloud数据进行关联"""
+                self._associate_sensor_with_cloud(sensorType, cloudTargets)
+            else:
+                """情况B：没有Cloud数据 - 使用已有跟踪文件或创建新的"""
+                self._associate_sensor_without_cloud(sensorType)
+        """第三步：清理过时的跟踪文件"""
+        self._cleanup_stale_tracks()
+
+    def _associate_sensor_with_cloud(self, sensorType: str, cloudTargets: set) -> None:
+        """
+        当有Cloud数据时，将Radar/UWB数据与Cloud数据关联
+        :param sensorType: 传感器类型（"Radar"或"UWB"）
+        :param cloudTargets: 本次Cloud观测到的目标ID集合
+        :return: None
+        """
+        sensorDataList = self.sensors[sensorType].data  # 获取传感器数据列表
+        # 为每个Cloud目标寻找最匹配的传感器数据
+        for targetID in cloudTargets:
+            if targetID not in self.trackFiles or "Cloud" not in self.trackFiles[targetID]:
+                continue
+            # 获取Cloud跟踪文件的最新状态
+            cloudTrackFile = self.trackFiles[targetID]["Cloud"]
+            cloudState = cloudTrackFile.get_state_estimate()
+            if cloudState is None:
+                continue
+            cloudPosition = np.array([
+                cloudState.position.east,
+                cloudState.position.north,
+                cloudState.position.up
+            ])
+            # 找到与cloud位置最匹配的传感器数据
+            bestMatch = None
+            bestDistance = float('inf')
+            for sensorData in sensorDataList:
+                # 转换传感器数据到ENU坐标系
+                posInENU = TrackFile.body_to_enu(
+                    sensorData.range,
+                    sensorData.azimuth,
+                    sensorData.elevation,
+                    self.ownState.position,
+                    self.ownAttitude.yaw,
+                    self.ownAttitude.pitch,
+                    self.ownAttitude.roll
                 )
-                # 检查是否距离小于阈值，使用马氏距离的方式
-                # 转换协方差矩阵，位置坐标协方差矩阵
-                cloudCovariance = self.sensors["Cloud"].covariance[0:3, 0:3]  # Cloud数据的位置协方差矩阵
-                rowCovariance = self.sensors[sensorType].covariance  # Radar/UWB数据的位置协方差矩阵
+                # 计算欧式距离（用于初步筛选）
+                distance = np.linalg.norm(posInENU - cloudPosition)
+                if distance < bestDistance:
+                    bestDistance = distance
+                    bestMatch = (sensorData, posInENU)
+            # 如果找到匹配，进行马氏距离验证
+            if bestMatch is not None:
+                sensorData, posInENU = bestMatch
+                # 计算马氏距离
+                cloudCovariance = self.sensors["Cloud"].covariance[0:3, 0:3]
+                rowCovariance = self.sensors[sensorType].covariance
                 J = TrackFile.jacobian_body_to_enu(
-                    mostFitData.range,
-                    mostFitData.azimuth,
-                    mostFitData.elevation,
+                    sensorData.range,
+                    sensorData.azimuth,
+                    sensorData.elevation,
                     self.ownAttitude.yaw,
                     self.ownAttitude.pitch,
                     self.ownAttitude.roll
                 )
                 sensorCovariance = J @ rowCovariance @ J.T
-                # 转换为ENU坐标系下位置，便于计算马氏距离
-                posInENU = TrackFile.body_to_enu(
-                    mostFitData.range, 
-                    mostFitData.azimuth, 
-                    mostFitData.elevation,
-                    self.ownState.position,
-                    self.ownAttitude.yaw,
-                    self.ownAttitude.pitch, 
-                    self.ownAttitude.roll
-                )
-                MahalanobisDistance = STM.mahalanobis_distance(
-                    cloudPos,
+                mahalanobisDistance = self.mahalanobis_distance(
+                    cloudPosition,
                     posInENU,
                     cloudCovariance,
                     sensorCovariance
                 )
-                if MahalanobisDistance > 5:
-                    continue
-                # 追加和更新跟踪文件
-                self.trackFiles[cloudData.UAVID][sensorType] = TrackFile(cloudData.UAVID, sensorType, self.sensors[sensorType].covariance)
-                self.trackFiles[cloudData.UAVID][sensorType].update(mostFitData, self.ownState, self.ownAttitude)
+                # 马氏距离阈值检验
+                if mahalanobisDistance < 5.0:
+                    # 创建或更新传感器跟踪文件
+                    if sensorType not in self.trackFiles[targetID]:
+                        self.trackFiles[targetID][sensorType] = TrackFile(
+                            targetID,
+                            sensorType,
+                            self.sensors[sensorType].covariance
+                        )
+                    self.trackFiles[targetID][sensorType].update(
+                        sensorData,
+                        self.ownState,
+                        self.ownAttitude
+                    )
 
+    def _associate_sensor_without_cloud(self, sensorType: str) -> None:
+        """
+        当没有Cloud数据时，处理Radar/UWB数据 
+        策略：
+        1. 先将所有现有跟踪文件预测到当前时刻
+        2. 用预测位置与传感器数据进行匹配
+        3. 如果没有匹配的跟踪文件，创建新的"未知目标"跟踪文件
+        :param sensorType: 传感器类型（"Radar"或"UWB"）
+        :return: None
+        """
+        if self.ownState is None:
+            return
+        sensorDataList = self.sensors[sensorType].data  # 获取传感器数据列表
+        # 如果没有传感器数据，直接返回
+        if len(sensorDataList) == 0:
+            return
+        # 获取传感器数据的时间戳（假设同一批数据时间戳相同）
+        currentSensorTime = sensorDataList[0].timeStamp
+        usedSensorData = set()  # 记录已使用的传感器数据索引
+        """预测所有现有跟踪文件到当前传感器时刻"""
+        predictedStates = {}  # {targetID: predicted_position}
+        for targetID, trackDict in self.trackFiles.items():
+            # 过滤不存在该传感器类型的跟踪文件
+            if sensorType not in trackDict:
+                continue
+            trackFile = trackDict[sensorType]
+            # 计算时间差
+            dt = currentSensorTime - trackFile.lastUpdate
+            # 如果时间差过大（超过10秒），认为跟踪丢失，跳过
+            if dt > 10.0 or dt < 0:
+                continue
+            # 预测到当前时刻（但不更新lastUpdate）
+            if dt > 0 and trackFile.kf is not None:
+                # 临时保存原始状态
+                original_x = trackFile.kf.x.copy()
+                original_P = trackFile.kf.P.copy()
+                original_F = trackFile.kf.F.copy()
+                # 更新状态转移矩阵并预测
+                trackFile.kf.F[0, 3] = dt
+                trackFile.kf.F[1, 4] = dt
+                trackFile.kf.F[2, 5] = dt
+                trackFile.kf.predict()
+                # 提取预测位置
+                predictedPos = np.array([
+                    trackFile.kf.x[0],  # east
+                    trackFile.kf.x[1],  # north
+                    trackFile.kf.x[2]   # up
+                ])
+                predictedStates[targetID] = {
+                    'position': predictedPos,
+                    'trackFile': trackFile
+                }
+                # 恢复原始状态（预测只是为了匹配，实际更新在后面）
+                trackFile.kf.x = original_x
+                trackFile.kf.P = original_P
+                trackFile.kf.F = original_F
+        """将传感器数据与预测状态进行匹配"""
+        matchResults = {}  # {idx: targetID} 传感器数据索引 -> 目标ID
+        for targetID, predInfo in predictedStates.items():
+            predictedPos = predInfo['position']
+            # 找到最接近预测位置的传感器数据
+            bestMatchIdx = None
+            bestDistance = float('inf')
+            for idx, sensorData in enumerate(sensorDataList):
+                # 跳过已使用的传感器数据
+                if idx in usedSensorData:
+                    continue
+                # 转换传感器数据到ENU坐标系
+                posInENU = TrackFile.body_to_enu(
+                    sensorData.range,
+                    sensorData.azimuth,
+                    sensorData.elevation,
+                    self.ownState.position,
+                    self.ownAttitude.yaw,
+                    self.ownAttitude.pitch,
+                    self.ownAttitude.roll
+                )
+                # 计算欧式距离
+                distance = np.linalg.norm(posInENU - predictedPos)
+                # 距离阈值（可配置，根据传感器类型和预测时间调整）
+                # 阈值 = 基础阈值 + 速度不确定性 * 时间差
+                baseThreshold = 20.0  # 基础阈值20米
+                dt = currentSensorTime - predInfo['trackFile'].lastUpdate
+                velocityUncertainty = 5.0  # 假设速度不确定性为5m/s
+                adaptiveThreshold = baseThreshold + velocityUncertainty * dt
+                if distance < bestDistance and distance < adaptiveThreshold:
+                    bestDistance = distance
+                    bestMatchIdx = idx
+            # 如果找到匹配
+            if bestMatchIdx is not None:
+                matchResults[bestMatchIdx] = targetID
+                usedSensorData.add(bestMatchIdx)
+        """用匹配的传感器数据更新跟踪文件"""
+        for idx, targetID in matchResults.items():
+            trackFile = predictedStates[targetID]['trackFile']
+            sensorData = sensorDataList[idx]
+            # 正式更新跟踪文件（包含预测+更新）
+            trackFile.update(
+                sensorData,
+                self.ownState,
+                self.ownAttitude
+            )
+        """处理剩余未匹配的传感器数据（创建新跟踪文件）"""
+        for idx, sensorData in enumerate(sensorDataList):
+            # 跳过已经使用过的传感器数据
+            if idx in usedSensorData:
+                continue
+            # 生成临时目标ID（使用传感器类型+时间戳+索引）
+            tempTargetID = f"Unknown_{sensorType}_{sensorData.timeStamp}_{idx}"
+            # 创建新的跟踪文件
+            if tempTargetID not in self.trackFiles:
+                self.trackFiles[tempTargetID] = {}
+            self.trackFiles[tempTargetID][sensorType] = TrackFile(
+                tempTargetID,
+                sensorType,
+                self.sensors[sensorType].covariance
+            )
+            # 初始化新跟踪文件
+            self.trackFiles[tempTargetID][sensorType].update(
+                sensorData,
+                self.ownState,
+                self.ownAttitude
+            )
+
+    def _cleanup_stale_tracks(self, maxAge: float = 5.0) -> None:
+        """
+        清理过时的跟踪文件
+        规则：
+        1. 如果某个目标的所有跟踪文件都超过maxAge秒未更新，删除该目标
+        2. 如果某个跟踪文件超过maxAge秒未更新，删除该跟踪文件
+        :param maxAge: 最大允许未更新时间（秒）
+        :return: None
+        """
+        if self.ownState is None:
+            return
+        currentTime = self.ownState.timeStamp  # 当前时间戳
+        targetsToRemove = []  # 待删除的目标ID列表
+        for targetID, trackDict in self.trackFiles.items():
+            sensorsToRemove = []
+            # 检查每个传感器的跟踪文件
+            for sensorType, trackFile in trackDict.items():
+                # 计算跟踪文件年龄
+                age = currentTime - trackFile.lastUpdate  
+                if age > maxAge:
+                    sensorsToRemove.append(sensorType)
+            # 删除过时的传感器跟踪文件
+            for sensorType in sensorsToRemove:
+                del trackDict[sensorType]
+            # 如果所有传感器的跟踪文件都被删除，标记该目标待删除
+            if len(trackDict) == 0:
+                targetsToRemove.append(targetID)
+        # 删除没有任何跟踪文件的目标
+        for targetID in targetsToRemove:
+            del self.trackFiles[targetID]
+    
     @staticmethod
     def mahalanobis_distance(x1, x2, cov1, cov2):
         """
@@ -491,40 +690,65 @@ class STM:
         """
         for targetID, trackDict in self.trackFiles.items():
             # 收集所有有效的状态估计
-            estimates = [tf.get_state_estimate() for tf in trackDict.values() if tf.get_state_estimate() is not None]   
-            # 如果只有Cloud的数据
+            estimates = []
+            for sensorType, tf in trackDict.items():
+                stateEstimate = tf.get_state_estimate()
+                if stateEstimate is not None:
+                    estimates.append(stateEstimate)
+            # 如果没有有效估计，跳过
+            if len(estimates) == 0:
+                continue
+            # 如果只有一个估计，直接使用
             if len(estimates) == 1:
                 fusedEstimate = estimates[0]
-            # 判断时间戳，太久的剔除(与Cloud的时间戳比较)
             else:
-                estimates = [e for e in estimates if abs(e.timeStamp - trackDict["Cloud"].lastUpdate) < 3]
-                """协方差加权融合"""
-                covarianceInverseSum = np.zeros((6, 6))
-                weightedStateSum = np.zeros(6)
-                for estimate in estimates:
-                    covariance = estimate.covariance
-                    stateVector = np.array([
-                        estimate.position.east,
-                        estimate.position.north,
-                        estimate.position.up,
-                        estimate.velocity.eastVelocity,
-                        estimate.velocity.northVelocity,
-                        estimate.velocity.upVelocity
-                    ])
-                    covarianceInverse = np.linalg.pinv(covariance)  # 矩阵求逆
-                    covarianceInverseSum += covarianceInverse  # 协方差加权和   
-                    weightedStateSum += covarianceInverse @ stateVector  # 状态加权和
-                fusedCovariance = np.linalg.pinv(covarianceInverseSum)  # 协方差加权和求逆
-                fusedState = fusedCovariance @ weightedStateSum  # 加权和求均值
-                # 构造融合后的 StateEstimate
-                fusedEstimate = StateEstimate(
-                    ID=targetID,
-                    position=Position(east=fusedState[0], north=fusedState[1], up=fusedState[2]),
-                    velocity=Velocity(eastVelocity=fusedState[3], northVelocity=fusedState[4], upVelocity=fusedState[5]),
-                    covariance=fusedCovariance,
-                    timeStamp=trackDict["Cloud"].lastUpdate
-                )
-            # 保存结果
+                # 多个估计进行融合
+                # 确定参考时间戳（使用最新的）
+                refTime = max(e.timeStamp for e in estimates)
+                # 过滤掉太旧的估计（超过3秒）
+                validEstimates = [e for e in estimates if abs(e.timeStamp - refTime) < 3.0]
+                if len(validEstimates) == 0:
+                    continue
+                elif len(validEstimates) == 1:
+                    fusedEstimate = validEstimates[0]
+                else:
+                    # 协方差加权融合
+                    covarianceInverseSum = np.zeros((6, 6))
+                    weightedStateSum = np.zeros(6)
+                    for estimate in validEstimates:
+                        covariance = estimate.covariance
+                        stateVector = np.array([
+                            estimate.position.east,
+                            estimate.position.north,
+                            estimate.position.up,
+                            estimate.velocity.eastVelocity,
+                            estimate.velocity.northVelocity,
+                            estimate.velocity.upVelocity
+                        ])
+                        try:
+                            covarianceInverse = np.linalg.inv(covariance)
+                        except np.linalg.LinAlgError:
+                            covarianceInverse = np.linalg.pinv(covariance)
+                        covarianceInverseSum += covarianceInverse
+                        weightedStateSum += covarianceInverse @ stateVector
+                    try:
+                        fusedCovariance = np.linalg.inv(covarianceInverseSum)
+                    except np.linalg.LinAlgError:
+                        fusedCovariance = np.linalg.pinv(covarianceInverseSum)
+                    fusedState = fusedCovariance @ weightedStateSum
+                    # 构造融合后的 StateEstimate
+                    fusedEstimate = StateEstimate(
+                        ID=targetID,
+                        position=Position(east=fusedState[0], north=fusedState[1], up=fusedState[2]),
+                        velocity=Velocity(
+                            eastVelocity=fusedState[3],
+                            northVelocity=fusedState[4],
+                            upVelocity=fusedState[5]
+                        ),
+                        covariance=fusedCovariance,
+                        timeStamp=refTime
+                    )
+            # 保存融合结果
             self.targets[targetID] = fusedEstimate
 
 
