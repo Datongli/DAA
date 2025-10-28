@@ -19,24 +19,29 @@ def merge_by_timeStamp(cfg):
     :return: 合并后的数据
     """
     # 获取项目根目录的绝对路径
-    project_root = os.path.dirname(os.path.dirname(__file__))
-    data_dir = os.path.join(project_root, "data")
-    flightData = pd.read_json(os.path.join(data_dir, "FlightControl.json"))
-    trackData = pd.read_json(os.path.join(data_dir, "Track.json"))
-    cloudData = pd.read_json(os.path.join(data_dir, "Cloud.json"))
-    radarData = pd.read_json(os.path.join(data_dir, "Radar.json"))
-    uwbData = pd.read_json(os.path.join(data_dir, "UWB.json"))
+    projectRoot = os.path.dirname(os.path.dirname(__file__))
+    datadir = os.path.join(projectRoot, "data")
+    flightControlData = pd.read_json(os.path.join(datadir, "FlightControl.json"))
+    trackData = pd.read_json(os.path.join(datadir, "Track.json"))
+    cloudData = pd.read_json(os.path.join(datadir, "Cloud.json"))
+    radarData = pd.read_json(os.path.join(datadir, "Radar.json"))
+    uwbData = pd.read_json(os.path.join(datadir, "UWB.json"))
+    intrudersRealData = pd.read_json(os.path.join(datadir, "IntruderReal.json"))
     # 建立时间戳索引
     merged = {}
     # 读取Track文件
     for item in trackData.to_dict(orient="records"):
         process_track_data(merged, item, cfg.utmZone)
     # 读取FlightControl文件，与Track数据合并
-    for item in flightData.to_dict(orient="records"):
+    for item in flightControlData.to_dict(orient="records"):
         process_flight_data(merged, item)
     # 读取Cloud文件
     for item in cloudData.to_dict(orient="records"):
         process_cloud_data(merged, item, cfg.utmZone)
+    # 读取入侵者真实数据
+    for item in intrudersRealData.to_dict(orient="records"):
+        process_intruder_real_data(merged, item, cfg.utmZone)
+    """现在radar和uwb数据由模拟构成"""
     # 读取Radar文件
     for item in radarData.to_dict(orient="records"):
         process_radar_data(merged, item)
@@ -142,6 +147,31 @@ def process_cloud_data(merged: dict, item: dict, utmZone: str) -> None:
     coordinate, velocity = coordinate_transformation(item, utmZone)
     # 创建Cloud数据
     merged[timeStamp]["Cloud"].append({
+        "UAVID": UAVID,
+        "timeStamp": timeStamp,
+        "coordinate": coordinate,
+        "velocity": velocity,
+    })
+
+
+def process_intruder_real_data(merged: dict, item: dict, utmZone: str) -> None:
+    """
+    处理入侵者真实轨迹
+    :param merged: 合并后的数据
+    :param item: 入侵者真实轨迹数据项
+    :param utmZone: UTM区域号，例如 '50N' / '50S'
+    :return: None
+    """
+    timeStamp = item["location"]["timestamp"]  # 时间戳
+    if timeStamp not in merged:
+        merged[timeStamp] = {"Track": [], "Cloud": [], "IntruderReal": [], "Radar": [], "UWB": []}
+    # 确保IntruderReal键存在
+    if "IntruderReal" not in merged[timeStamp]:
+        merged[timeStamp]["IntruderReal"] = []
+    UAVID = item["aircraft"]["uaIdType"]  
+    coordinate, velocity = coordinate_transformation(item, utmZone)
+    # 创建IntruderReal数据
+    merged[timeStamp]["IntruderReal"].append({
         "UAVID": UAVID,
         "timeStamp": timeStamp,
         "coordinate": coordinate,
