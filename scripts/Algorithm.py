@@ -72,12 +72,13 @@ class ExampleAlgorithm(AlgorithmBaseClass):
         relativeHorizontalPosition = np.array([relativePosition.east, relativePosition.north])
         # 计算相对航迹角 (ψ)以自己航迹角为参考，正为靠近，负为远离
         ownHeading = np.arctan2(ownState.velocity.eastVelocity, ownState.velocity.northVelocity)
-        relativeTrackAngle = np.arctan2(trackState.velocity.eastVelocity, trackState.velocity.northVelocity) - ownHeading
-        relativeTrackAngle = (relativeTrackAngle + np.pi) % (2 * np.pi) - np.pi  # 归一化角度到[-π, π]
+        intruderHeading = np.arctan2(trackState.velocity.eastVelocity, trackState.velocity.northVelocity)
+        relativeTrackAngle = intruderHeading - ownHeading
+        relativeTrackAngle = (relativeTrackAngle + np.pi) % (2 * np.pi) - np.pi  # 归一化到[-π, π]
         # 计算相对方位角 (θ)以自己方位角为参考，正为右边，负为左边
-        ownHeading = np.arctan2(ownState.position.east, ownState.position.north)
-        relativeBearing = np.arctan2(trackState.position.east, trackState.position.north) - ownHeading
-        relativeBearing = (relativeBearing + np.pi) % (2 * np.pi) - np.pi  # 归一化角度到[-π, π]
+        absoluteBearing = np.arctan2(relativePosition.east, relativePosition.north)
+        relativeBearing = absoluteBearing - ownHeading
+        relativeBearing = (relativeBearing + np.pi) % (2 * np.pi) - np.pi
         # 计算垂直分离即将丢失时间 (τv)
         if abs(relativeVelocity.upVelocity) > 0.001:  # 避免除以零
             timeToVerticalLoss = abs(relativePosition.up / relativeVelocity.upVelocity)
@@ -86,7 +87,7 @@ class ExampleAlgorithm(AlgorithmBaseClass):
         # 计算水平分离即将丢失时间 (τ)
         relativePositionVeclocity = np.array([relativePosition.east, relativePosition.north])  # 水平相对位置
         relativeVelocityVeclocity = np.array([relativeVelocity.eastVelocity, relativeVelocity.northVelocity])  # 水平相对速度
-        horizontalRange = np.linalg.norm(relativePositionVeclocity)  # 水平距离
+        # horizontalRange = np.linalg.norm(relativePositionVeclocity)  # 水平距离
         if horizontalRange > 1e-6:
             direction = relativePositionVeclocity / horizontalRange  # 单位方向向量
             closingSpeed = np.dot(relativeVelocityVeclocity, direction)  # 投影速度
@@ -96,6 +97,17 @@ class ExampleAlgorithm(AlgorithmBaseClass):
                 timeToHorizontalLoss = float('inf')
         else:
             timeToHorizontalLoss = 0.0
+        """添加调试输出"""
+        # print(f"\n=== TRM State Debug ===")
+        # print(f"相对位置: east={relativePosition.east:.2f}, north={relativePosition.north:.2f}")
+        # print(f"自机航向: {np.rad2deg(ownHeading):.2f}°")
+        # print(f"入侵者航向: {np.rad2deg(intruderHeading):.2f}°")
+        # print(f"绝对方位角: {np.rad2deg(absoluteBearing):.2f}°")
+        # print(f"相对方位角: {np.rad2deg(relativeBearing):.2f}° ({'右' if relativeBearing > 0 else '左'})")
+        # print(f"相对航迹角: {np.rad2deg(relativeTrackAngle):.2f}°")
+        # print(f"水平距离: {horizontalRange:.2f}m")
+        # print(f"接近时间: {timeToHorizontalLoss:.2f}s")
+        # print(f"======================\n")
         return TRMState(
             horizontalRange=horizontalRange,
             relativeTrackAngle=relativeTrackAngle,
@@ -124,8 +136,12 @@ class ExampleAlgorithm(AlgorithmBaseClass):
         sectorIntruders = [[] for _ in range(sectorNum)]
         sectorAngle = 2 * np.pi / sectorNum  # 每个扇区对应的角度
         for state in trmStates:
-            angle = np.arctan2(state.relativeHorizontalPosition[0], state.relativeHorizontalPosition[1]) % (2 * np.pi)  # 入侵者方位角，归一化到[0, 2π]
-            idx = int(angle // sectorAngle) # 计算扇区索引
+            angle = np.arctan2(state.relativeHorizontalPosition[0], state.relativeHorizontalPosition[1])
+            # 归一化到[0, 2π]
+            if angle < 0:
+                angle += 2 * np.pi
+            idx = int(angle / sectorAngle) % sectorNum # 计算扇区索引
+            # 累加风险值
             risk = 1.0 / (state.horizontalRange + 1e-3)
             riskProfile[idx] += risk
             sectorIntruders[idx].append(state)
@@ -150,14 +166,14 @@ class ExampleAlgorithm(AlgorithmBaseClass):
         if state.timeToHorizontalLoss < 10:
             if state.relativeBearing < 0:
                 #  目标在左侧同时向靠近自己方向移动
-                if state.relativeTrackAngle > 0:
+                if abs(state.relativeTrackAngle) < np.pi/2:
                     return HorizontalAction.TURN_RIGHT_FAST
                 # 目标在左侧同时向远离自己方向移动
                 else:
                     return HorizontalAction.TURN_RIGHT_SLOW
             else:
                 # 目标在右侧同时向靠近自己方向移动
-                if state.relativeTrackAngle < 0:
+                if abs(state.relativeTrackAngle) < np.pi/2:
                     return HorizontalAction.TURN_LEFT_FAST
                 # 目标在右侧同时向远离自己方向移动
                 else:
