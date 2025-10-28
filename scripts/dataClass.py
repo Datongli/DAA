@@ -121,3 +121,13 @@ class TRMState:
     ownVerticalSpeed: float         # 自机垂直速率 dh0 (米/秒)
     intruderVerticalSpeed: float    # 入侵机垂直速率 dh1 (米/秒)
     timeToHorizontalLoss: float     # 水平分离即将丢失时间 τ (秒)
+
+
+@dataclass
+class Action:
+    """
+    动作类
+    """
+    east: float  # 东向动作
+    north: float  # 北向动作
+    up: float  # 高向动作

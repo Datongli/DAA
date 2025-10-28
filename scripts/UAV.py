@@ -24,34 +24,55 @@ class UAV:
         self.trm: TRM = TRM(self.cfg)  # 跟踪管理模块
         self.simulateSensors: bool = getattr(self.cfg, "simulateSensors", True)  # 是否模拟传感器数据
         self.actions: BlendedAction | None = None  # 无人机动作（ blended action）
+        self.actionENU: Action | None = None
             
-    def update(self, data: Dict) -> np.array:
+    def update(self, data: Dict, actionENU: Action | None = None) -> np.array:
         """
         UAV更新逻辑
         :param data: 传感器数据
         """
+        """更新传入的东北高三维动作"""
+        self.actionENU = actionENU
         """更新传感器数据"""
         # 先得到轨迹数据
         trackData = data.get("Track")
         if trackData:
             self.sensors["Track"].get_observations(trackData)
-        # 如果存在云数据，则更新云、radar、UWB、track数据
-        cloudData = data.get("Cloud")  
+        # 读取Cloud数据（有可能为空）
+        cloudData = data.get("Cloud", [])
         if cloudData:
-            self.sensors["Cloud"].get_observations(cloudData)
-            if self.simulateSensors:
-                # 生成模拟数据
-                simSensorData = self._simulate_sensor_measurements(cloudData)
-                for sensorName, dataList in simSensorData.items():
-                    if sensorName in self.sensors:
-                        self.sensors[sensorName].get_observations(dataList)
-                    else:
-                        raise ValueError(f"未知传感器类型: {sensorName}")
+            self.sensors["Cloud"].get_observations(cloudData)  
+        # 读取IntruderReal数据（入侵者真实轨迹）
+        intruderRealData = data.get("IntruderReal", [])
+        if intruderRealData and self.simulateSensors:
+            # 基于真实轨迹生成模拟传感器数据
+            simSensorData = self._simulate_sensor_measurements(intruderRealData)
+            for sensorName, dataList in simSensorData.items():
+                if sensorName in self.sensors:
+                    self.sensors[sensorName].get_observations(dataList)
+                else:
+                    raise ValueError(f"未知传感器类型: {sensorName}")
         """STM模块逻辑更新"""
         self.ownState, self.targets, self.trackFiles = self.stm.update()
         """TRM模块逻辑更新"""
         self.actions, riskProfile = self.trm.resolve_threat(self.ownState, self.targets)
         return self.actions, riskProfile, self.trackFiles
+    
+    def get_own_state(self) -> any:
+        """
+        获取无人机自身状态估计
+        :return: 无人机自身状态估计
+        """
+        # 先用来占位，后续根据需要进行实现
+        pass
+
+    def read_action(self, actions: Action | None = None) -> None:
+        """
+        读取无人机动作
+        :param actions: 无人机动作
+        """
+        # 先用来占位，后续根据需要进行实现
+        self.actionENU = actions
     
     def _init_sensors(self) -> None:
         """
@@ -64,24 +85,26 @@ class UAV:
             else:
                 raise ValueError(f"未知传感器类型: {sensor}")
             
-    def _simulate_sensor_measurements(self, cloudData: Dict) -> Dict[str, list]:
+    def _simulate_sensor_measurements(self, intruderRealData: List[Dict]) -> Dict[str, list]:
         """
-        基于上一时刻自身状态与上一时刻动作，推演当前时刻自身真实状态；再用该状态与 Cloud 入侵者真值生成 Radar/UWB 的量测。
+        基于上一时刻自身状态与上一时刻动作，推演当前时刻自身真实状态；再用该状态与 IntruderReal 入侵者真值生成 Radar/UWB 的量测。
         返回当前时刻的 Track、Radar、UWB 三类数据（各为单条记录的字典）。
-        :param cloudData: 云数据
+        :param intruderRealData: 入侵者真实轨迹数据
         :return: 模拟传感器数据字典
         """
-        # 若 cloudData 为列表/元组，则取第一条记录
-        if isinstance(cloudData, (list, tuple)) and cloudData:
-            cloudData = cloudData[0]
-        """读取Cloud入侵者真值（ENU）"""
-        intruderId = self.getAttr(cloudData, "UAVID")  # 获取入侵者ID
-        timeStamp = self.getAttr(cloudData, "timeStamp", default=None)  # 获取时间戳
-        cloudCoordinate = self.getAttr(cloudData, "coordinate", default={})  # 获取东北高坐标
-        cloudVelocity = self.getAttr(cloudData, "velocity", default={})  # 获取东北高速度
-        targetEast = float(self.readNumber(cloudCoordinate, "east", "E", "e", default=0.0))  # 获取东坐标
-        targetNorth = float(self.readNumber(cloudCoordinate, "north", "N", "n", default=0.0))  # 获取北坐标
-        targetUp = float(self.readNumber(cloudCoordinate, "up", "U", "u", default=0.0))  # 获取高坐标
+        # 若 intruderRealData 为空，返回空数据
+        if not intruderRealData:
+            return {"Track": [], "Radar": [], "UWB": []}
+        # 取第一个入侵者数据（支持多入侵者可在此扩展）
+        intruderData = intruderRealData[0] if isinstance(intruderRealData, list) else intruderRealData
+        """读取入侵者真实位置（ENU）"""
+        intruderId = self.getAttr(intruderData, "UAVID")  # 获取入侵者ID
+        timeStamp = self.getAttr(intruderData, "timeStamp", default=None)  # 获取时间戳
+        intruderCoordinate = self.getAttr(intruderData, "coordinate", default={})  # 获取东北高坐标
+        intruderVelocity = self.getAttr(intruderData, "velocity", default={})  # 获取东北高速度
+        targetEast = float(self.readNumber(intruderCoordinate, "east", "E", "e", default=0.0))  # 获取东坐标
+        targetNorth = float(self.readNumber(intruderCoordinate, "north", "N", "n", default=0.0))  # 获取北坐标
+        targetUp = float(self.readNumber(intruderCoordinate, "up", "U", "u", default=0.0))  # 获取高坐标
         """计算当前时刻自身真实状态"""
         dt = timeStamp - self.ownState.timeStamp if self.ownState else 1.0  # 计算时间间隔
         gravity = 9.81  # 重力加速度
@@ -112,40 +135,46 @@ class UAV:
                 velEastPrev = float(self.readNumber(ownVelPrev, "eastVelocity", "ve", "vx", default=0.0))
                 velNorthPrev = float(self.readNumber(ownVelPrev, "northVelocity", "vn", "vy", default=0.0))
                 velUpPrev = float(self.readNumber(ownVelPrev, "upVelocity", "vu", "vz", default=0.0))
-        # 获取上一时刻采取的动作
-        horizontalActionObj = self.getAttr(self, "actions", default=None)  # 提取水平动作对象
-        horizontalActionObj = self.getAttr(horizontalActionObj, "horizontal", default=None)  # 获取水平动作
-        horizontalName = self.readActionName(horizontalActionObj)  # 提取水平动作名称
-        verticalActionObj = self.getAttr(self, "actions", default=None)  # 提取垂直动作对象
-        verticalActionObj = self.getAttr(verticalActionObj, "vertical", default=None)  # 获取垂直动作
-        verticalName = self.readActionName(verticalActionObj)  # 提取垂直动作名称
-        deltaYawDeg = self._calculate_yaw_angle(horizontalName)  # 计算偏航角变化
-        deltaVelUp = self._calculate_vel_up(verticalName)  # 计算垂直速度变化
-        # 保持水平速标不变，旋转水平速度矢量
-        horizontalSpeedPrev = math.hypot(velEastPrev, velNorthPrev)
-        if horizontalSpeedPrev > 1e-6 and abs(deltaYawDeg) > 0.0:
-            deltaYawRad = self.deg2rad(deltaYawDeg)  # 左转为正，右转为负
-            cosD, sinD = math.cos(deltaYawRad), math.sin(deltaYawRad)
-            velEastCurr = cosD * velEastPrev - sinD * velNorthPrev  # 当前东方向速度
-            velNorthCurr = sinD * velEastPrev + cosD * velNorthPrev  # 当前北方向速度
+        # 获取动作
+        if self.actionENU is None:
+            # 采用默认的规定好的动作
+            horizontalActionObj = self.getAttr(self, "actions", default=None)  # 提取水平动作对象
+            horizontalActionObj = self.getAttr(horizontalActionObj, "horizontal", default=None)  # 获取水平动作
+            horizontalName = self.readActionName(horizontalActionObj)  # 提取水平动作名称
+            verticalActionObj = self.getAttr(self, "actions", default=None)  # 提取垂直动作对象
+            verticalActionObj = self.getAttr(verticalActionObj, "vertical", default=None)  # 获取垂直动作
+            verticalName = self.readActionName(verticalActionObj)  # 提取垂直动作名称
+            deltaYawDeg = self._calculate_yaw_angle_by_name(horizontalName)  # 计算偏航角变化
+            deltaVelUp = self._calculate_vel_up_by_name(verticalName)  # 计算垂直速度变化
+            # 保持水平速度不变，旋转水平速度矢量
+            horizontalSpeedPrev = math.hypot(velEastPrev, velNorthPrev)
+            if horizontalSpeedPrev > 1e-6 and abs(deltaYawDeg) > 0.0:
+                deltaYawRad = self.deg2rad(deltaYawDeg)  # 左转（逆时针）为正，右转（顺时针）为负
+                cosD, sinD = math.cos(deltaYawRad), math.sin(deltaYawRad)
+                velEastCurr = cosD * velEastPrev - sinD * velNorthPrev  # 当前东方向速度
+                velNorthCurr = sinD * velEastPrev + cosD * velNorthPrev  # 当前北方向速度
+            else:
+                velEastCurr, velNorthCurr = velEastPrev, velNorthPrev
+            # 垂直速度更新
+            velUpCurr = velUpPrev + deltaVelUp
         else:
-            velEastCurr, velNorthCurr = velEastPrev, velNorthPrev
-        # 垂直速度更新
-        velUpCurr = velUpPrev + deltaVelUp
+            velEastCurr, velNorthCurr, velUpCurr = self.actionENU.east, self.actionENU.north, self.actionENU.up
         # 位置积分
         ownEastCurr = ownEastPrev + velEastCurr * dt  # 当前东坐标
         ownNorthCurr = ownNorthPrev + velNorthCurr * dt  # 当前北坐标
         ownUpCurr = ownUpPrev + velUpCurr * dt  # 当前高坐标
-        # 姿态更新：yaw/pitch 来自速度指向，roll 采用协调转弯近似
+        # 姿态更新：简单起见只更新偏航角，俯仰角和滚转角保持不变
         ownAttitudePrev = getattr(self.stm, "ownAttitude", None)
         yawPrev = float(self.readNumber(ownAttitudePrev, "yaw", "Yaw", default=0.0)) if ownAttitudePrev is not None else 0.0
         pitchPrev = float(self.readNumber(ownAttitudePrev, "pitch", "Pitch", default=0.0)) if ownAttitudePrev is not None else 0.0
         rollPrev = float(self.readNumber(ownAttitudePrev, "roll", "Roll", default=0.0)) if ownAttitudePrev is not None else 0.0
+        # 修正：偏航角0度指向正东（而非正北）
+        # 从速度矢量计算偏航角：atan2(velNorth, velEast)，0度=正东
         horizontalSpeedCurr = math.hypot(velEastCurr, velNorthCurr)
         yawCurr = math.atan2(velNorthCurr, velEastCurr) if horizontalSpeedCurr > 1e-6 else yawPrev
-        pitchCurr = math.atan2(velUpCurr, max(horizontalSpeedCurr, 1e-3))
-        yawRate = self.deg2rad(deltaYawDeg) / dt
-        rollCurr = math.atan2(horizontalSpeedCurr * yawRate, gravity) if abs(yawRate) > 1e-6 else rollPrev
+        # 俯仰角和滚转角保持不变
+        pitchCurr = pitchPrev
+        rollCurr = rollPrev
         """生成模拟数据"""
         # 生成Track数据
         trackMsg = {
@@ -158,16 +187,26 @@ class UAV:
             "roll": rollCurr,
         }
         # 量测模型（Radar/UWB）
-        # 入侵者相对位置（ENU）
+        # 计算入侵者相对位置（ENU）
         relativeEnu = np.array([
             targetEast - ownEastCurr,
             targetNorth - ownNorthCurr,
             targetUp - ownUpCurr
         ], dtype=float)
         # ENU → 机体坐标（x前 y右 z上）
-        # 机体到世界的旋转为 Rz(yaw) * Ry(pitch) * Rx(roll)，世界到机体取转置
-        rotBodyWorld = self.rotZ(yawCurr) @ self.rotY(pitchCurr) @ self.rotX(rollCurr)
+        # 构建完整的旋转矩阵
+        rYaw = self.rotZ(yawCurr)
+        rPitch = self.rotY(pitchCurr)
+        rRoll = self.rotX(rollCurr)
+        # 机体到ENU的基础变换（0度=正东）
+        rBody2ENU = np.array([
+            [1, 0, 0],    # 机体x(前) -> ENU x(东)
+            [0, -1, 0],   # 机体y(右) -> ENU -y(南)
+            [0, 0, -1]    # 机体z(下) -> ENU -z(下)
+        ])
+        rotBodyWorld = rYaw @ rPitch @ rRoll @ rBody2ENU
         relativeBody = rotBodyWorld.T @ relativeEnu
+        # 计算极坐标参数
         rangeTrue = float(np.linalg.norm(relativeBody))
         xyNorm = max(1e-9, math.hypot(relativeBody[0], relativeBody[1]))
         azimuthTrueRad = math.atan2(relativeBody[1], relativeBody[0])   # 方位角（机体坐标，弧度）
@@ -175,44 +214,59 @@ class UAV:
         # 读取传感器精度/噪声配置（缺失直接用默认值）
         radarCfg = self.getAttr(self.cfg, "Radar", None)
         uwbCfg = self.getAttr(self.cfg, "UWB", None)
+        # Radar配置
+        radarMaxRange = self.readNumber(radarCfg, "maxRange", default=150.0)
+        radarMinRange = self.readNumber(radarCfg, "minRange", default=1.0)
+        radarMaxAzimuthDeg = self.readNumber(radarCfg, "maxAzimuthDeg", default=120.0) / 2.0
+        radarMaxElevationDeg = self.readNumber(radarCfg, "maxElevationDeg", default=60.0) / 2.0
         radarRangeAcc = self.readNumber(radarCfg, "rangeAcc", default=0.1)
         radarRangeStd = self.readNumber(radarCfg, "rangeStd", default=0.5)
         radarAzimuthAcc = self.readNumber(radarCfg, "azimuthAcc", default=1.0)
         radarAzimuthStd = self.readNumber(radarCfg, "azimuthStd", default=0.05)
         radarElevationAcc = self.readNumber(radarCfg, "elevationAcc", default=2.0)
         radarElevationStd = self.readNumber(radarCfg, "elevationStd", default=0.05)
+        # UWB配置
+        uwbMaxRange = self.readNumber(uwbCfg, "maxRange", default=200.0)
+        uwbMinRange = self.readNumber(uwbCfg, "minRange", default=1.0)
         uwbRangeAcc = self.readNumber(uwbCfg, "rangeAcc", default=0.1)
         uwbRangeStd = self.readNumber(uwbCfg, "rangeStd", default=0.3)
         uwbAzimuthAcc = self.readNumber(uwbCfg, "azimuthAcc", default=1.0)
         uwbAzimuthStd = self.readNumber(uwbCfg, "azimuthStd", default=0.08)
         uwbElevationAcc = self.readNumber(uwbCfg, "elevationAcc", default=2.0)
         uwbElevationStd = self.readNumber(uwbCfg, "elevationStd", default=0.08)
-        # 叠加噪声（方位角/俯仰角输出为度）
-        radarRange = self.noisy(rangeTrue, radarRangeAcc, radarRangeStd)
-        radarAzimuth = self.noisy(self.rad2deg(azimuthTrueRad), radarAzimuthAcc, radarAzimuthStd)
-        radarElevation = self.noisy(self.rad2deg(elevationTrueRad), radarElevationAcc, radarElevationStd)
-        uwbRange = self.noisy(rangeTrue, uwbRangeAcc, uwbRangeStd)
-        uwbAzimuth = self.noisy(self.rad2deg(azimuthTrueRad), uwbAzimuthAcc, uwbAzimuthStd)
-        uwbElevation = self.noisy(self.rad2deg(elevationTrueRad), uwbElevationAcc, uwbElevationStd)
-        # 生成radar数据
-        radarMsg = {
-            # "UAVID": self.ID,
-            "timeStamp": timeStamp,
-            # "targetID": intruderId,
-            "range": radarRange,
-            "azimuth": radarAzimuth,
-            "elevation": radarElevation,
-        }
-        # 生成uwb数据
-        uwbMsg = {
-            # "UAVID": self.ID,
-            "timeStamp": timeStamp,
-            # "targetID": intruderId,
-            "range": uwbRange,
-            "azimuth": uwbAzimuth,
-            "elevation": uwbElevation,
-        }
-        return {"Track": [trackMsg], "Radar": [radarMsg], "UWB": [uwbMsg]}
+        # 检查Radar探测限制
+        radarMsg = []
+        azimuthTrueDeg = self.rad2deg(azimuthTrueRad)
+        elevationTrueDeg = self.rad2deg(elevationTrueRad)
+        radarInRange = (radarMinRange <= rangeTrue <= radarMaxRange)
+        radarInAzimuth = (abs(azimuthTrueDeg) <= radarMaxAzimuthDeg)
+        radarInElevation = (abs(elevationTrueDeg) <= radarMaxElevationDeg)
+        if radarInRange and radarInAzimuth and radarInElevation:
+            # 在探测范围内，生成带有噪声的数据
+            radarRange = self.noisy(rangeTrue, radarRangeAcc, radarRangeStd)
+            radarAzimuth = self.noisy(azimuthTrueDeg, radarAzimuthAcc, radarAzimuthStd)
+            radarElevation = self.noisy(elevationTrueDeg, radarElevationAcc, radarElevationStd)
+            radarMsg = [{
+                "timeStamp": timeStamp,
+                "range": radarRange,
+                "azimuth": radarAzimuth,
+                "elevation": radarElevation,
+            }]
+        # 检查UWB探测限制
+        uwbMsg = []
+        uwbInRange = (uwbMinRange <= rangeTrue <= uwbMaxRange)
+        if uwbInRange:
+            # 在探测范围内，生成带噪声的数据
+            uwbRange = self.noisy(rangeTrue, uwbRangeAcc, uwbRangeStd)
+            uwbAzimuth = self.noisy(azimuthTrueDeg, uwbAzimuthAcc, uwbAzimuthStd)
+            uwbElevation = self.noisy(elevationTrueDeg, uwbElevationAcc, uwbElevationStd)
+            uwbMsg = [{
+                "timeStamp": timeStamp,
+                "range": uwbRange,
+                "azimuth": uwbAzimuth,
+                "elevation": uwbElevation,
+            }]
+        return {"Track": [trackMsg], "Radar": radarMsg, "UWB": uwbMsg}
 
     @staticmethod
     def getAttr(obj: object, *names, default=None) -> any:
@@ -231,40 +285,31 @@ class UAV:
         return default
     
     @staticmethod
-    def rotZ(yawRad: float) -> np.ndarray:
-        """
-        绕 z 轴的旋转矩阵（右手系），角度单位：弧度。
-        :param yawRad: 旋转角度（弧度）
-        :return: 旋转矩阵
-        """
-        cosYaw, sinYaw = math.cos(yawRad), math.sin(yawRad)
-        return np.array([[cosYaw, -sinYaw, 0.0],
-                            [sinYaw,  cosYaw, 0.0],
-                            [0.0,     0.0,    1.0]], dtype=float)
-    
+    def rotX(angle: float) -> np.ndarray:
+        """绕X轴旋转矩阵"""
+        return np.array([
+            [1, 0, 0],
+            [0, np.cos(angle), -np.sin(angle)],
+            [0, np.sin(angle), np.cos(angle)]
+        ])
+
     @staticmethod
-    def rotY(pitchRad: float) -> np.ndarray:
-        """
-        绕 y 轴的旋转矩阵（右手系），角度单位：弧度。
-        :param pitchRad: 旋转角度（弧度）
-        :return: 旋转矩阵
-        """
-        cosPitch, sinPitch = math.cos(pitchRad), math.sin(pitchRad)
-        return np.array([[ cosPitch, 0.0, sinPitch],
-                            [ 0.0,      1.0, 0.0     ],
-                            [-sinPitch, 0.0, cosPitch]], dtype=float)
-    
+    def rotY(angle: float) -> np.ndarray:
+        """绕Y轴旋转矩阵"""
+        return np.array([
+            [np.cos(angle), 0, np.sin(angle)],
+            [0, 1, 0],
+            [-np.sin(angle), 0, np.cos(angle)]
+        ])
+
     @staticmethod
-    def rotX(rollRad: float) -> np.ndarray:
-        """
-        绕 x 轴的旋转矩阵（右手系），角度单位：弧度。
-        :param rollRad: 旋转角度（弧度）
-        :return: 旋转矩阵
-        """
-        cosRoll, sinRoll = math.cos(rollRad), math.sin(rollRad)
-        return np.array([[1.0, 0.0,     0.0    ],
-                            [0.0, cosRoll, -sinRoll],
-                            [0.0, sinRoll,  cosRoll]], dtype=float)
+    def rotZ(angle: float) -> np.ndarray:
+        """绕Z轴旋转矩阵（偏航角，0度=正东）"""
+        return np.array([
+            [np.cos(angle), -np.sin(angle), 0],
+            [np.sin(angle), np.cos(angle), 0],
+            [0, 0, 1]
+        ])
     
     @staticmethod
     def deg2rad(deg: float) -> float:
@@ -326,7 +371,7 @@ class UAV:
         return str(actionObj).upper()
     
     @staticmethod
-    def _calculate_yaw_angle(horizontalName: any) -> int | float:
+    def _calculate_yaw_angle_by_name(horizontalName: any) -> int | float:
         """
         计算偏航角
         :param horizontalName: 水平动作名称
@@ -346,7 +391,12 @@ class UAV:
         return deltaYawDeg
     
     @staticmethod
-    def _calculate_vel_up(verticalName: any) -> int | float:
+    def _calculate_vel_up_by_name(verticalName: any) -> int | float:
+        """
+        根据动作名称计算上升速度变化
+        :param verticalName: 垂直动作名称
+        :return: 上升速度变化（m/s）
+        """
         # 垂直动作对应的上升速度变化（m/s）
         deltaVelUp = 0.0
         if "CLIMB" in verticalName:

@@ -65,9 +65,18 @@ def DAAmain() -> dict:
         return {"error": "No UAVs found in configuration"}
     timeLine = []
     for timeStamp, value in data.items():
+        # 确保所有必要的键都存在
+        if "IntruderReal" not in value:
+            value["IntruderReal"] = []
+        if "Cloud" not in value:
+            value["Cloud"] = []
+        if "Radar" not in value:
+            value["Radar"] = []
+        if "UWB" not in value:
+            value["UWB"] = []
         actions, riskProfile, uavTrackFiles = uav.update(value)
 
-        # 检查框架有效性使用
+        """检查框架有效性使用"""
         print({
             "timeStamp": timeStamp,
             "coordinate": {
@@ -156,4 +165,6 @@ if __name__ == "__main__":
     key=9, value={'Track': [{'UAVID': 'ANSI/CTA-2063-A', 'timeStamp': 9, 'coordinate': {'east': 503757.21058654046, 'north': 4370872.302760963, 'up': 10}, 'velocity': {'eastVelocity': np.float64(0.0), 'northVelocity': np.float64(1.1), 'upVelocity': 0}, 'yaw': np.float64(0.0), 'pitch': np.float64(0.0), 'roll': np.float64(0.0)}], 'Cloud': [{'UAVID': 'ANSI/CTA-2063-B', 'timeStamp': 9, 'coordinate': {'east': 503750.2734632952, 'north': 4370884.62932512, 'up': 10}, 'velocity': {'eastVelocity': np.float64(0.894264275681819), 'northVelocity': np.float64(-1.1043244112303556), 'upVelocity': 0}}], 'Radar': [{'timeStamp': 9, 'range': 14.145, 'azimuth': np.float64(-0.5126032013107346), 'elevation': np.float64(0.0)}], 'UWB': [{'timeStamp': 9, 'range': 14.5, 'azimuth': np.float64(-0.5059709501531561), 'elevation': np.float64(0.0)}]}    
     """
     daaResult = DAAmain()
-    print(daaResult)
+    print("=" * 200)
+    for result in daaResult["timeline"]:
+        print(result)
