@@ -2,10 +2,9 @@ import math
 import random
 from dataclasses import dataclass
 from typing import Tuple, List, Optional
-
 import numpy as np
 from pathlib import Path
-
+from intruder_logic import RandomIntruder
 
 # =========================
 # 环境/模型超参数
@@ -22,11 +21,11 @@ OWN_ALT_SPEEDS = [2.0, 0.0, -2.0]  # 上、平、下
 GOAL_POS = np.array([500.0, 1000.0, 25.0], dtype=float)
 GOAL_TOL = 5.0  # m
 
-INTR_INIT_POS = np.array([500.0, 1000.0, 25.0], dtype=float)
-INTR_TERM_POS = np.array([500.0, 0.0, 25.0], dtype=float)
-INTR_YAW_DEG = -90.0  # 朝向 -Y
+# INTR_INIT_POS = np.array([500.0, 1000.0, 25.0], dtype=float)
+# INTR_TERM_POS = np.array([500.0, 0.0, 25.0], dtype=float)
+# INTR_YAW_DEG = -90.0  # 朝向 -Y
 INTR_HORIZ_SPEED = 10.0  # m/s，水平恒速
-INTR_ALT_V = 0.0  # m/s
+# INTR_ALT_V = 0.0  # m/s
 
 DETECT_RADIUS = 50.0  # m
 FOV_DEG = 360.0  # 全向 360°
@@ -49,11 +48,11 @@ EPSILON_DECAY_EPISODES = 300  # 线性衰减到终值
 TRAIN_EPISODES = 4000
 MAX_STEPS_PER_EP = 200  # 单回合最多步数
 
-# 动作集合（二维组合：水平角速度 Δψ，竖直速度 vz）
+# 动作集合（仅水平角速度 Δψ）——在避障阶段取消垂直动作，竖直速度由 autopilot 或固定 0 控制
 YAW_RATES = [-30.0, -10.0, 0.0, 10.0, 30.0]  # deg/s
-ALT_V_OPTS = [2.0, 0.0, -2.0]  # m/s
-ACTIONS: List[Tuple[float, float]] = [(yr, vz) for yr in YAW_RATES for vz in ALT_V_OPTS]
-N_ACTIONS = len(ACTIONS)  # 15
+# 动作现在只包含水平角速率
+ACTIONS: List[float] = YAW_RATES.copy()
+N_ACTIONS = len(ACTIONS)
 
 # 保存/加载路径（项目根目录下 checkpoints/qtable_uav.npy）
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -168,6 +167,12 @@ class SimpleUAV:
         self.horiz_speed = float(horiz_speed)
         self.vz = float(vz)
 
+    def reset(self, pos: np.ndarray, yaw_deg: float, vz: float = 0.0):
+        """重新设置无人机状态（供环境 reset 调用）。"""
+        self.state.pos = pos.astype(float).copy()
+        self.state.yaw_deg = float(yaw_deg)
+        self.vz = float(vz)
+
     def step(self, yaw_rate_deg_s: float, vz_cmd: float, dt: float = DT):
         # 更新航向
         self.state.yaw_deg = wrap_angle_deg(self.state.yaw_deg + yaw_rate_deg_s * dt)
@@ -233,20 +238,37 @@ class UAVCollisionEnv:
     - Q-learning 仅在探测到入侵者时启用；未探测时自机按航点直飞（限制最大转速）。
     - 注意：脱离冲突后不终止，改为继续飞向目标点（RL退出，转为自动驾驶）。
     """
-    def __init__(self, seed: Optional[int] = None):
-        self.rng = np.random.default_rng(seed)
+    def __init__(self, seed: int = 42):
+        self.own = SimpleUAV(OWN_INIT_POS.copy(), OWN_INIT_YAW_DEG, OWN_HORIZ_SPEED)
+        # --- 使用新的 RandomIntruder 类，传入世界/自机信息以避免循环导入 ---
+        self.intr = RandomIntruder(
+            horiz_speed=INTR_HORIZ_SPEED,
+            dt=DT,
+            world_xy=WORLD_XY,
+            world_z=WORLD_Z,
+            own_init=OWN_INIT_POS.copy(),
+            goal_pos=GOAL_POS.copy(),
+            own_horiz_speed=OWN_HORIZ_SPEED
+        )
+        self.seed = seed
         self.reset()
 
     def reset(self):
-        self.own = SimpleUAV(OWN_INIT_POS.copy(), OWN_INIT_YAW_DEG, OWN_HORIZ_SPEED)
-        self.intr = SimpleUAV(INTR_INIT_POS.copy(), INTR_YAW_DEG, INTR_HORIZ_SPEED, INTR_ALT_V)
+        random.seed(self.seed)
+        np.random.seed(self.seed)
+        self.own.reset(OWN_INIT_POS.copy(), OWN_INIT_YAW_DEG)
+        # --- 重置随机入侵者 ---
+        self.intr.reset()
+        self.steps = 0
+        # 计时器（用于 timeout 判断等）
         self.t = 0
-        self.detected_started = False  # 一旦首次探测到入侵者，则进入RL阶段
-        self.prev_dist = None  # 上一步自机与入侵者的3D距离
+        # 标志：是否曾进入过探测阶段（用于 deconflicted 判断）
+        self.detected_started = False
+        # 运行完成标志
         self.done = False
-        self.info = {}
-        # 返回初始RL状态（若未探测，则返回None）
-        return self._get_state()
+        # 记录上一步距离用于奖励计算
+        self.prev_dist = np.linalg.norm(self.own.state.pos - self.intr.state.pos)
+        self.seed += 1  # 更新种子以便下次reset时不同
 
     def _get_state(self) -> Optional[Tuple[int, int, int]]:
         detected, theta_deg, dist3 = in_front_fov(self.own.state.yaw_deg, self.own.state.pos, self.intr.state.pos)
@@ -283,7 +305,9 @@ class UAVCollisionEnv:
 
         # 选择动作
         if use_rl and action is not None and detected_now:
-            yaw_rate, vz = ACTIONS[action]
+            # RL 动作仅包含水平角速率，竖直速度在避障阶段保持 0（不做垂直机动）
+            yaw_rate = float(ACTIONS[action])
+            vz = 0.0
         else:
             yaw_rate, vz = self._autopilot_to_goal()
 
@@ -384,9 +408,10 @@ class UAVCollisionEnv:
             # 距离越近惩罚越大（范围[0,50]映射到[-0.5,0]）
             r += 0.5 * (curr_dist / DETECT_RADIUS - 1.0)
 
-            # 动作平滑惩罚（过大角速、爬升/下降略惩罚）
-            r -= 0.02 * abs(yaw_rate)  # [-0.6,0]
-            r -= 0.02 * abs(vz)        # {0, -0.04}
+            # 动作平滑惩罚：减小对水平角速的惩罚，显著增加对垂直速度的惩罚
+            # 鼓励智能体优先使用水平机动而不是上下爬升/下降。
+            r -= 0.01 * abs(yaw_rate)
+            r -= 0.5 * abs(vz)
 
         return float(r)
 

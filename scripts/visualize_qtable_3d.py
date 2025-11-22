@@ -1,6 +1,7 @@
 import numpy as np
 from QLearningAlgorithm import (
-    QLearningAgent, UAVCollisionEnv, evaluate, animate_episode, QTABLE_PATH
+    QLearningAgent, UAVCollisionEnv, evaluate, animate_episode, QTABLE_PATH,
+    WORLD_XY, WORLD_Z, OWN_INIT_POS, GOAL_POS, DT
 )
 from typing import Optional
 
@@ -14,7 +15,9 @@ def main():
         print(f"[QTable] not found: {QTABLE_PATH}")
         return
 
-    env = UAVCollisionEnv(seed=0)
+    # 使用随机种子以确保每次演示入侵者航线不同
+    random_seed = np.random.randint(0, 2**31 - 1)
+    env = UAVCollisionEnv(seed=int(random_seed))
     # 使用贪婪策略跑一次仿真并动态演示
     result = evaluate(agent, env, render=False)
     print("Final info:", result["final_info"])
