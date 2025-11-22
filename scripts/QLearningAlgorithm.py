@@ -29,8 +29,14 @@ INTR_HORIZ_SPEED = 10.0  # m/s，水平恒速
 INTR_ALT_V = 0.0  # m/s
 
 DETECT_RADIUS = 50.0  # m
-FOV_DEG = 180.0  # 前向 180°
-FOV_HALF = FOV_DEG / 2.0  # 90°
+FOV_DEG = 360.0  # 全向 360°
+FOV_HALF = FOV_DEG / 2.0  # 180°
+
+# 状态离散（相对方位角θ、绝对高度差h）
+# θ 分桶: [-180,-150), [-150,-90), [-90,-30), [-30,0), [0,30), [30,90), [90,150), [150,180]
+THETA_BUCKETS = 8  # 水平方向的角度分桶
+H_BUCKETS = 5      # 高度差分桶
+DIST_BUCKETS = 2   # 水平方向距离分桶: [0,25), [25,50]
 
 COLLISION_DIST = 5.0  # m
 
@@ -42,12 +48,6 @@ EPSILON_END = 0.05
 EPSILON_DECAY_EPISODES = 300  # 线性衰减到终值
 TRAIN_EPISODES = 4000
 MAX_STEPS_PER_EP = 200  # 单回合最多步数
-
-# 状态离散（相对方位角θ、绝对高度差h）
-# θ 分桶: [-90,-30), [-30,0), [0,30), [30,90]
-# h 分桶: [0,10), [10,20), [20,30], (30,40], (40,50]
-THETA_BUCKETS = 4
-H_BUCKETS = 5
 
 # 动作集合（二维组合：水平角速度 Δψ，竖直速度 vz）
 YAW_RATES = [-30.0, -10.0, 0.0, 10.0, 30.0]  # deg/s
@@ -109,17 +109,25 @@ def in_front_fov(own_yaw_deg: float, own_pos: np.ndarray, intr_pos: np.ndarray, 
 
 
 def bin_theta(theta_deg: float) -> Optional[int]:
-    """θ分桶: [-90,-30)->0, [-30,0)->1, [0,30)->2, [30,90]->3；若超出[-90,90]返回None"""
-    if theta_deg < -90.0 or theta_deg > 90.0:
+    """θ分桶: [-180,-150)->0, [-150,-90)->1, [-90,-30)->2, [-30,0)->3, [0,30)->4, [30,90)->5, [90,150)->6, [150,180]->7"""
+    if theta_deg < -180.0 or theta_deg > 180.0:
         return None
-    if -90.0 <= theta_deg < -30.0:
+    if -180.0 <= theta_deg < -150.0:
         return 0
-    if -30.0 <= theta_deg < 0.0:
+    if -150.0 <= theta_deg < -90.0:
         return 1
-    if 0.0 <= theta_deg < 30.0:
+    if -90.0 <= theta_deg < -30.0:
         return 2
-    # [30,90]
-    return 3
+    if -30.0 <= theta_deg < 0.0:
+        return 3
+    if 0.0 <= theta_deg < 30.0:
+        return 4
+    if 30.0 <= theta_deg < 90.0:
+        return 5
+    if 90.0 <= theta_deg < 150.0:
+        return 6
+    # [150, 180]
+    return 7
 
 
 def bin_h(h_abs: float) -> int:
@@ -136,6 +144,16 @@ def bin_h(h_abs: float) -> int:
         return 3
     # 40.0 < h <= 50.0
     return 4
+
+
+def bin_dist(dist: float) -> Optional[int]:
+    """水平距离分桶: [0,25)->0, [25,50]->1"""
+    if dist < 0.0 or dist > 50.0:
+        return None
+    if 0.0 <= dist < 25.0:
+        return 0
+    if 25.0 <= dist <= 50.0:
+        return 1
 
 
 @dataclass
@@ -176,8 +194,8 @@ class SimpleUAV:
 
 class QLearningAgent:
     def __init__(self):
-        # Q表: [theta_bucket(4), h_bucket(5), action(15)]
-        self.Q = np.zeros((THETA_BUCKETS, H_BUCKETS, N_ACTIONS), dtype=float)
+        # Q表: [theta_bucket(8), h_bucket(5), dist_bucket(2), action(15)]
+        self.Q = np.zeros((THETA_BUCKETS, H_BUCKETS, DIST_BUCKETS, N_ACTIONS), dtype=float)
 
     def epsilon(self, ep: int) -> float:
         if ep >= EPSILON_DECAY_EPISODES:
@@ -185,25 +203,25 @@ class QLearningAgent:
         # 线性衰减
         return EPSILON_START - (EPSILON_START - EPSILON_END) * (ep / EPSILON_DECAY_EPISODES)
 
-    def select_action(self, state: Tuple[int, int], ep: int) -> int:
-        theta_i, h_i = state
+    def select_action(self, state: Tuple[int, int, int], ep: int) -> int:
+        theta_i, h_i, dist_i = state
         eps = self.epsilon(ep)
         if random.random() < eps:
             return random.randrange(N_ACTIONS)
-        q = self.Q[theta_i, h_i]
+        q = self.Q[theta_i, h_i, dist_i]
         # 随机打破平局
         max_q = np.max(q)
         candidates = np.flatnonzero(np.isclose(q, max_q))
         return int(np.random.choice(candidates))
 
-    def update(self, s: Tuple[int, int], a: int, r: float, s_next: Optional[Tuple[int, int]], done: bool):
-        theta_i, h_i = s
+    def update(self, s: Tuple[int, int, int], a: int, r: float, s_next: Optional[Tuple[int, int, int]], done: bool):
+        theta_i, h_i, dist_i = s
         if done or s_next is None:
             target = r
         else:
-            tn, hn = s_next
-            target = r + GAMMA * np.max(self.Q[tn, hn])
-        self.Q[theta_i, h_i, a] = (1 - ALPHA) * self.Q[theta_i, h_i, a] + ALPHA * target
+            tn, hn, dn = s_next
+            target = r + GAMMA * np.max(self.Q[tn, hn, dn])
+        self.Q[theta_i, h_i, dist_i, a] = (1 - ALPHA) * self.Q[theta_i, h_i, dist_i, a] + ALPHA * target
 
 
 class UAVCollisionEnv:
@@ -230,16 +248,17 @@ class UAVCollisionEnv:
         # 返回初始RL状态（若未探测，则返回None）
         return self._get_state()
 
-    def _get_state(self) -> Optional[Tuple[int, int]]:
+    def _get_state(self) -> Optional[Tuple[int, int, int]]:
         detected, theta_deg, dist3 = in_front_fov(self.own.state.yaw_deg, self.own.state.pos, self.intr.state.pos)
         if not detected:
             return None
         h_abs = abs(self.intr.state.pos[2] - self.own.state.pos[2])
         th_idx = bin_theta(theta_deg)
-        if th_idx is None:
+        dist_idx = bin_dist(dist3)  # 新增水平距离分桶
+        if th_idx is None or dist_idx is None:
             return None
         h_idx = bin_h(h_abs)
-        return (th_idx, h_idx)
+        return (th_idx, h_idx, dist_idx)
 
     def _autopilot_to_goal(self) -> Tuple[float, float]:
         """未探测到入侵者时：朝目标点直飞（限制角速±30°/s），竖直保持高度（0）"""
@@ -251,7 +270,7 @@ class UAVCollisionEnv:
         """入侵者固定对向直飞（航向保持-90°），竖直速度0"""
         return 0.0, 0.0
 
-    def step(self, action: Optional[int], use_rl: bool) -> Tuple[Optional[Tuple[int, int]], float, bool, dict]:
+    def step(self, action: Optional[int], use_rl: bool) -> Tuple[Optional[Tuple[int, int, int]], float, bool, dict]:
         """环境推进一步。
         - action: 若 use_rl=True，传入离散动作索引；否则忽略（自驾朝目标飞）
         - use_rl: True 表示开启RL（探测到入侵者后）
@@ -320,9 +339,10 @@ class UAVCollisionEnv:
         next_state = None
         if detected_next:
             th_i = bin_theta(theta_next)
-            if th_i is not None:
+            dist_i = bin_dist(dist3_new)  # 新增水平距离分桶
+            if th_i is not None and dist_i is not None:
                 h_i = bin_h(abs(self.intr.state.pos[2] - self.own.state.pos[2]))
-                next_state = (th_i, h_i)
+                next_state = (th_i, h_i, dist_i)
 
         info = {
             "t": self.t,
@@ -443,8 +463,8 @@ def evaluate(agent: QLearningAgent, env: UAVCollisionEnv, render: bool = False) 
         use_rl = s is not None
         if use_rl:
             # 贪婪策略
-            theta_i, h_i = s
-            q = agent.Q[theta_i, h_i]
+            theta_i, h_i, dist_i = s  # 修改为解包 3 个维度
+            q = agent.Q[theta_i, h_i, dist_i]
             a = int(np.argmax(q))
         else:
             a = None
