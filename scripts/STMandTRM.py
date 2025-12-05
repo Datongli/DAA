@@ -61,10 +61,10 @@ class TrackFile:
             # Radar/UWB观测（极坐标转ENU位置）
             enuPosition = TrackFile.body_to_enu(
                 sensorData.range,
-                sensorData.azimuth,
-                sensorData.elevation,
+                np.deg2rad(sensorData.azimuth),
+                np.deg2rad(sensorData.elevation),
                 ownState.position,
-                ownAttitude.yaw if hasattr(ownAttitude, 'yaw') else 0,
+                ownAttitude.yaw if hasattr(ownAttitude, 'yaw') else 90,
                 ownAttitude.pitch if hasattr(ownAttitude, 'pitch') else 0,
                 ownAttitude.roll if hasattr(ownAttitude, 'roll') else 0
             )
@@ -77,9 +77,9 @@ class TrackFile:
             # 误差传播，得到ENU下的观测协方差
             J = TrackFile.jacobian_body_to_enu(
                 sensorData.range,
-                sensorData.azimuth,
-                sensorData.elevation,
-                ownAttitude.yaw if hasattr(ownAttitude, 'yaw') else 0,
+                np.deg2rad(sensorData.azimuth),
+                np.deg2rad(sensorData.elevation),
+                ownAttitude.yaw if hasattr(ownAttitude, 'yaw') else 90,
                 ownAttitude.pitch if hasattr(ownAttitude, 'pitch') else 0,
                 ownAttitude.roll if hasattr(ownAttitude, 'roll') else 0
             )
@@ -114,19 +114,19 @@ class TrackFile:
             # 初始状态
             enuPosition = TrackFile.body_to_enu(
                 sensorData.range,
-                sensorData.azimuth,
-                sensorData.elevation,
+                np.deg2rad(sensorData.azimuth),
+                np.deg2rad(sensorData.elevation),
                 ownState.position,
-                ownAttitude.yaw if hasattr(ownAttitude, 'yaw') else 0,
+                ownAttitude.yaw if hasattr(ownAttitude, 'yaw') else 90,
                 ownAttitude.pitch if hasattr(ownAttitude, 'pitch') else 0,
                 ownAttitude.roll if hasattr(ownAttitude, 'roll') else 0
             )
             initState = np.array([enuPosition[0], enuPosition[1], enuPosition[2], 0, 0, 0])  # 初始状态 (假设速度为零)
             J = TrackFile.jacobian_body_to_enu(
                 sensorData.range,
-                sensorData.azimuth,
-                sensorData.elevation,
-                ownAttitude.yaw if hasattr(ownAttitude, 'yaw') else 0,
+                np.deg2rad(sensorData.azimuth),
+                np.deg2rad(sensorData.elevation),
+                ownAttitude.yaw if hasattr(ownAttitude, 'yaw') else 90,
                 ownAttitude.pitch if hasattr(ownAttitude, 'pitch') else 0,
                 ownAttitude.roll if hasattr(ownAttitude, 'roll') else 0
             )
@@ -257,17 +257,17 @@ class TrackFile:
             azimuth: 方位角 (弧度，机体坐标系)
             elevation: 俯仰角 (弧度，机体坐标系)
             ownPosition: 自身位置
-            yaw: 偏航角 (弧度，逆时针为正，0°=北)
+            yaw: 偏航角 (弧度，逆时针为正，0=正东)
             pitch: 俯仰角 (弧度，上仰为正)
             roll: 滚转角 (弧度，右滚为正)
         Returns:
             ENU坐标系下的位置 [east, north, up]
         """
         """将极坐标转换成机体坐标系下直角坐标"""
-        # 假设机体坐标系：x轴指向机头正前方，y轴指向右侧，z轴指向下方
+        # 假设机体坐标系：x轴指向机头正前方，y轴指向右侧，z轴指向上方
         xBody = range * np.cos(azimuth) * np.cos(elevation)
         yBody = range * np.sin(azimuth) * np.cos(elevation)
-        zBody = - range * np.sin(elevation)
+        zBody = range * np.sin(elevation)
         bodyVector = np.array([xBody, yBody, zBody])  # 入侵者在机体坐标系下的位置
         """构造从机体坐标系到ENU坐标系的旋转矩阵"""
         # 旋转顺序：先滚转，再俯仰，最后偏航 (ZYX欧拉角)
@@ -297,6 +297,7 @@ class TrackFile:
             yaw: 偏航角 (弧度，逆时针为正，0°=北)
             pitch: 俯仰角 (弧度，上仰为正)
             roll: 滚转角 (弧度，右滚为正)
+            机体坐标系：x前，y右，z上
         
         Returns:
             3x3雅可比矩阵 [∂(east,north,up)/∂(range,azimuth,elevation)]
@@ -307,15 +308,15 @@ class TrackFile:
         # 对range的偏导数
         dxDr = np.cos(elevation) * np.cos(azimuth)
         dyDr = np.cos(elevation) * np.sin(azimuth)
-        dzDr = - np.sin(elevation)
+        dzDr = np.sin(elevation)
         # 对azimuth的偏导数
         dxDaz = -range * np.cos(elevation) * np.sin(azimuth)
         dyDaz = range * np.cos(elevation) * np.cos(azimuth)
-        dzDaz = 0
+        dzDaz = 0.0
         # 对elevation的偏导数
         dxDel = -range * np.sin(elevation) * np.cos(azimuth)
         dyDel = -range * np.sin(elevation) * np.sin(azimuth)
-        dzDel = -range * np.cos(elevation)
+        dzDel = range * np.cos(elevation)
         """构造雅可比矩阵"""
         jBody = np.array([
             [dxDr, dxDaz, dxDel],
@@ -464,8 +465,8 @@ class STM:
                 # 转换传感器数据到ENU坐标系
                 posInENU = TrackFile.body_to_enu(
                     sensorData.range,
-                    sensorData.azimuth,
-                    sensorData.elevation,
+                    np.deg2rad(sensorData.azimuth),
+                    np.deg2rad(sensorData.elevation),
                     self.ownState.position,
                     self.ownAttitude.yaw,
                     self.ownAttitude.pitch,
@@ -484,8 +485,8 @@ class STM:
                 rowCovariance = self.sensors[sensorType].covariance
                 J = TrackFile.jacobian_body_to_enu(
                     sensorData.range,
-                    sensorData.azimuth,
-                    sensorData.elevation,
+                    np.deg2rad(sensorData.azimuth),
+                    np.deg2rad(sensorData.elevation),
                     self.ownAttitude.yaw,
                     self.ownAttitude.pitch,
                     self.ownAttitude.roll
@@ -498,7 +499,7 @@ class STM:
                     sensorCovariance
                 )
                 # 马氏距离阈值检验
-                if mahalanobisDistance < 5.0:
+                if mahalanobisDistance < 1000.0:
                     # 创建或更新传感器跟踪文件
                     if sensorType not in self.trackFiles[targetID]:
                         self.trackFiles[targetID][sensorType] = TrackFile(
@@ -582,8 +583,8 @@ class STM:
                 # 转换传感器数据到ENU坐标系
                 posInENU = TrackFile.body_to_enu(
                     sensorData.range,
-                    sensorData.azimuth,
-                    sensorData.elevation,
+                    np.deg2rad(sensorData.azimuth),
+                    np.deg2rad(sensorData.elevation),
                     self.ownState.position,
                     self.ownAttitude.yaw,
                     self.ownAttitude.pitch,
