@@ -22,7 +22,8 @@ SENSOR_FILE_MAP = {
     "Radar": "Radar.json",
     "UWB": "UWB.json",
     "Track": "Track.json",
-    "FlightControl": "FlightControl.json"
+    "FlightControl": "FlightControl.json",
+    "IntruderReal": "IntruderReal.json"
 }
 
 
