@@ -1,0 +1,51 @@
+{
+    "aircraft": {
+      "uaIdType": "ANSI/CTA-2063-B",
+      "aircraftType": "Helicopter (or Multirotor)",
+      "aircraftAlias": "",
+      "uasId": "2076test000000000001"
+    },
+    "connection": {
+      "macAddress": "60:60:1f:2a:11:1",
+      "lastSeen": 0,
+      "firstSeen": 0,
+      "signalStrength": -64,
+      "connectionType": "WIFI6",
+      "msgDelay": 0,
+      "timestamp": 10
+    },
+    "imei": "",
+    "location": {
+      "pressureAltitude": 501.5,
+      "verticalSpeedAccuracy": "<3 m/s",
+      "flyStatus": "Ground",
+      "latitude": 39.49065340264151,
+      "barometerAccuracy": ">150 m",
+      "horizontalSpeedAccuracy": "<3 m/s",
+      "horizontalSpeed": 1.418,
+      "distanceFromMe": 0,
+      "relativeHeight": 10.0,
+      "geodeticAltitude": 474.5,
+      "verticalSpeed": 0,
+      "direction": 142,
+      "longitude": 117.0404928312137,
+      "timestamp": 0
+    },
+    "sn": "20740000000000000001",
+    "time": 0,
+    "droneOperator": {
+      "areaCount": 1,
+      "areaCeiling": -1000,
+      "areaFloor": -1000,
+      "latitude": 39.48736,
+      "locationType": "Dynamic",
+      "geodeticAltitude": 485,
+      "areaRadius": 0,
+      "category": "Undefined",
+      "classification": "Reserved",
+      "class": "Class 0",
+      "operatorId": "",
+      "longitude": 117.0436913
+    },
+    "uploadBy": "2074FGL125224133219A"
+  }
