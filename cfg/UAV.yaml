@@ -12,10 +12,10 @@ UAVs:
     azimuthStd: 0.05
     elevationAcc: 2
     elevationStd: 0.05
-    maxRange: 150.0  # 最大探测距离
-    minRange: 1.0  # 最小探测距离
-    maxAzimuthDeg: 120.0  # 最大方位角
-    maxElevationDeg: 60.0  # 最大俯仰角
+    maxRange: 380.0
+    minRange: 1.0
+    maxAzimuthDeg: 180.0
+    maxElevationDeg: 180.0
   UWB:
     rangeAcc: 0.1
     rangeStd: 0.3
@@ -23,8 +23,8 @@ UAVs:
     azimuthStd: 0.08
     elevationAcc: 2
     elevationStd: 0.08
-    maxRange: 200.0  # 最大探测距离
-    minRange: 1.0  # 最小探测距离
+    maxRange: 400.0
+    minRange: 1.0
   Track:
     eastAcc: 0.1
     northAcc: 0.1
