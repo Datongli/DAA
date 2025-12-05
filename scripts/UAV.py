@@ -25,6 +25,7 @@ class UAV:
         self.simulateSensors: bool = getattr(self.cfg, "simulateSensors", True)  # 是否模拟传感器数据
         self.actions: BlendedAction | None = None  # 无人机动作（ blended action）
         self.actionENU: Action | None = None
+        self.dt = getattr(self.cfg, "dt", 0.1)  # 模拟时间间隔
             
     def update(self, data: Dict, actionENU: Action | None = None) -> np.array:
         """
@@ -106,8 +107,56 @@ class UAV:
         targetNorth = float(self.readNumber(intruderCoordinate, "north", "N", "n", default=0.0))  # 获取北坐标
         targetUp = float(self.readNumber(intruderCoordinate, "up", "U", "u", default=0.0))  # 获取高坐标
         """计算当前时刻自身真实状态"""
-        dt = timeStamp - self.ownState.timeStamp if self.ownState else 1.0  # 计算时间间隔
-        gravity = 9.81  # 重力加速度
+        self.dt = timeStamp - self.ownState.timeStamp if self.ownState else 1.0  # 计算时间间隔
+        # ---------- 首帧初始化逻辑开始 ----------
+        # 如果目前 ownState 为空，说明这是首次调用：用 Track 里的自身数据初始化上一时刻状态
+        if self.ownState is None:
+            dt = 0.0
+            # 从 Track 传感器中读取当前时刻的自身状态（假设已经在 UAV.update 中喂入了 Track 数据）
+            trackSensor = self.sensors.get("Track", None)
+            if trackSensor is not None and getattr(trackSensor, "data", None):
+                # 取最后一条 Track 数据（或根据需要取与 timeStamp 匹配的条目）
+                lastTrack = trackSensor.data[-1]
+                trackCoord = self.getAttr(lastTrack, "coordinate", default={})
+                trackVel = self.getAttr(lastTrack, "velocity", default={})
+                ownEastPrev = float(self.readNumber(trackCoord, "east", "E", "e", default=0.0))
+                ownNorthPrev = float(self.readNumber(trackCoord, "north", "N", "n", default=0.0))
+                ownUpPrev = float(self.readNumber(trackCoord, "up", "U", "u", default=0.0))
+                velEastPrev = float(self.readNumber(trackVel, "eastVelocity", "ve", "vx", default=0.0))
+                velNorthPrev = float(self.readNumber(trackVel, "northVelocity", "vn", "vy", default=0.0))
+                velUpPrev = float(self.readNumber(trackVel, "upVelocity", "vu", "vz", default=0.0))
+                self.ownState = StateEstimate(
+                    ID=self.ID,
+                    position=trackCoord,
+                    velocity=trackVel,
+                    covariance=None,
+                    timeStamp=timeStamp
+                )
+            else:
+                # 如果 Track 里也没有任何数据，只能退回到 0（这种情况一般不应该发生）
+                ownEastPrev = ownNorthPrev = ownUpPrev = 0.0
+                velEastPrev = velNorthPrev = velUpPrev = 0.0
+        else:
+            # ---------- 非首帧：按原有逻辑从 self.ownState 取上一时刻状态 ----------
+            ownStatePrev = self.ownState
+            ownCoordPrev = self.getAttr(ownStatePrev, "position", default=None)  # 获取上一时刻自身位置
+            ownVelPrev = self.getAttr(ownStatePrev, "velocity", default=None)  # 获取上一时刻自身速度
+            if ownCoordPrev is None:
+                ownEastPrev = float(self.readNumber(ownStatePrev, "east", "E", "e", default=0.0))
+                ownNorthPrev = float(self.readNumber(ownStatePrev, "north", "N", "n", default=0.0))
+                ownUpPrev = float(self.readNumber(ownStatePrev, "up", "U", "u", default=0.0))
+            else:
+                ownEastPrev = float(self.readNumber(ownCoordPrev, "east", "E", "e", default=0.0))
+                ownNorthPrev = float(self.readNumber(ownCoordPrev, "north", "N", "n", default=0.0))
+                ownUpPrev = float(self.readNumber(ownCoordPrev, "up", "U", "u", default=0.0))
+            if ownVelPrev is None:
+                velEastPrev = float(self.readNumber(ownStatePrev, "eastVelocity", "ve", "vx", default=0.0))
+                velNorthPrev = float(self.readNumber(ownStatePrev, "northVelocity", "vn", "vy", default=0.0))
+                velUpPrev = float(self.readNumber(ownStatePrev, "upVelocity", "vu", "vz", default=0.0))
+            else:
+                velEastPrev = float(self.readNumber(ownVelPrev, "eastVelocity", "ve", "vx", default=0.0))
+                velNorthPrev = float(self.readNumber(ownVelPrev, "northVelocity", "vn", "vy", default=0.0))
+                velUpPrev = float(self.readNumber(ownVelPrev, "upVelocity", "vu", "vz", default=0.0))
         # 获取上一时刻自身状态（位置和速度）
         ownStatePrev = self.ownState if self.ownState else None  
         if ownStatePrev is None:
@@ -160,15 +209,15 @@ class UAV:
         else:
             velEastCurr, velNorthCurr, velUpCurr = self.actionENU.east, self.actionENU.north, self.actionENU.up
         # 位置积分
-        ownEastCurr = ownEastPrev + velEastCurr * dt  # 当前东坐标
-        ownNorthCurr = ownNorthPrev + velNorthCurr * dt  # 当前北坐标
-        ownUpCurr = ownUpPrev + velUpCurr * dt  # 当前高坐标
+        ownEastCurr = ownEastPrev + velEastCurr * self.dt  # 当前东坐标
+        ownNorthCurr = ownNorthPrev + velNorthCurr * self.dt  # 当前北坐标
+        ownUpCurr = ownUpPrev + velUpCurr * self.dt  # 当前高坐标
         # 姿态更新：简单起见只更新偏航角，俯仰角和滚转角保持不变
         ownAttitudePrev = getattr(self.stm, "ownAttitude", None)
-        yawPrev = float(self.readNumber(ownAttitudePrev, "yaw", "Yaw", default=0.0)) if ownAttitudePrev is not None else 0.0
+        yawPrev = float(self.readNumber(ownAttitudePrev, "yaw", "Yaw", default=0.0)) if ownAttitudePrev is not None else self.rad2deg(lastTrack.yaw)  # 默认偏航角朝向正北，90度
         pitchPrev = float(self.readNumber(ownAttitudePrev, "pitch", "Pitch", default=0.0)) if ownAttitudePrev is not None else 0.0
         rollPrev = float(self.readNumber(ownAttitudePrev, "roll", "Roll", default=0.0)) if ownAttitudePrev is not None else 0.0
-        # 修正：偏航角0度指向正东（而非正北）
+        # 修正：偏航角0度指向正东
         # 从速度矢量计算偏航角：atan2(velNorth, velEast)，0度=正东
         horizontalSpeedCurr = math.hypot(velEastCurr, velNorthCurr)
         yawCurr = math.atan2(velNorthCurr, velEastCurr) if horizontalSpeedCurr > 1e-6 else yawPrev
