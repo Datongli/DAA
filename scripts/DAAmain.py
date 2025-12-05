@@ -11,6 +11,7 @@ except ImportError:
     from omegaconf import OmegaConf, DictConfig
 import os
 from UAV import UAV
+from STMandTRM import TrackFile
 from dataProcessLocal import merge_by_timeStamp, utm_to_wgs84
 
 
@@ -59,8 +60,8 @@ def DAAmain() -> dict:
     cfg = load_cfg_service()
     # 读取数据
     data = merge_by_timeStamp(cfg)
-    # 获取无人机列表
-    uav = build_uav(cfg)
+    # 获取无人机对象
+    uav: UAV = build_uav(cfg)
     if uav is None:
         return {"error": "No UAVs found in configuration"}
     timeLine = []
@@ -75,7 +76,6 @@ def DAAmain() -> dict:
         if "UWB" not in value:
             value["UWB"] = []
         actions, riskProfile, uavTrackFiles = uav.update(value)
-
         """检查框架有效性使用"""
         print({
             "timeStamp": timeStamp,
@@ -99,17 +99,48 @@ def DAAmain() -> dict:
                 "roll": float(getattr(uav.stm.ownAttitude, "roll", 0.0)),
             }
         })
-
-
-
         if not uavTrackFiles:
+            # 计算按照原速度移动的下一个点位
+            originNextPointEast = uav.ownState.position.east + uav.ownState.velocity.eastVelocity * uav.dt
+            originNextPointNorth = uav.ownState.position.north + uav.ownState.velocity.northVelocity * uav.dt
+            originNextPointUp = uav.ownState.position.up + uav.ownState.velocity.upVelocity * uav.dt
+            originNextWGS84 = utm_to_wgs84(
+                originNextPointEast,
+                originNextPointNorth,
+                originNextPointUp,
+                cfg.utmZone
+            )
+            # 转换自身坐标到WGS84
+            ownWGS84 = utm_to_wgs84(
+                uav.ownState.position.east,
+                uav.ownState.position.north,
+                uav.ownState.position.up,
+                cfg.utmZone
+            )
             timeLine.append({
+                # 时间戳
                 "timeStamp": timeStamp,
+                # 轨迹文件
                 "riskProfile": [float(x) for x in (riskProfile if riskProfile is not None else [])],
+                # 动作
                 "actions": {
                     "H": actions.horizontal.name if actions and actions.horizontal else "NONE",
                     "V": actions.vertical.name if actions and actions.vertical else "NONE"
-                }
+                },
+                # 当前点位
+                "currentPoint": {
+                    "latitude": ownWGS84["latitude"],
+                    "longitude": ownWGS84["longitude"],
+                    "height": ownWGS84["height"]
+                },
+                # 按照原速度移动的下一个点位
+                "originallyNextPoint": {
+                    "latitude": originNextWGS84["latitude"],
+                    "longitude": originNextWGS84["longitude"],
+                    "height": originNextWGS84["height"]
+                },
+                # 状态提示
+                "status": "OK"
             })
         else:
             # 有入侵者时，每个目标单独一条
@@ -126,14 +157,20 @@ def DAAmain() -> dict:
                 # 各传感器观测
                 for sensorType in ["Cloud", "Radar", "UWB"]:
                     if sensorType in trackFiles:
-                        tf = trackFiles[sensorType]
-                        # 转换为WGS84
-                        wgs84 = utm_to_wgs84(float(tf.kf.x[0]), float(tf.kf.x[1]), float(tf.kf.x[2]), cfg.utmZone)
-                        entry[sensorType] = {
-                            "longitude": wgs84["longitude"],
-                            "latitude": wgs84["latitude"],
-                            "height": wgs84["height"]
-                        }
+                        tf: TrackFile = trackFiles[sensorType]
+                        # 获取状态估计对象
+                        stateEstimate = tf.get_state_estimate()
+                        if stateEstimate and stateEstimate.position:
+                            # 转换为WGS84
+                            wgs84 = utm_to_wgs84(float(stateEstimate.position.east), 
+                                                 float(stateEstimate.position.north), 
+                                                 float(stateEstimate.position.up), 
+                                                 cfg.utmZone)
+                            entry[sensorType] = {
+                                "longitude": wgs84["longitude"],
+                                "latitude": wgs84["latitude"],
+                                "height": wgs84["height"]
+                            }
                 # 融合结果
                 fused = uav.targets.get(trackID)
                 if fused:
@@ -144,7 +181,51 @@ def DAAmain() -> dict:
                         "latitude": wgs84["latitude"],
                         "height": wgs84["height"]
                     }
-                timeLine.append(entry)
+            # 转换自身坐标到WGS84
+            ownWGS84 = utm_to_wgs84(
+                uav.ownState.position.east,
+                uav.ownState.position.north,
+                uav.ownState.position.up,
+                cfg.utmZone
+            )
+            entry["currentPoint"] = {
+                "longitude": ownWGS84["longitude"],
+                "latitude": ownWGS84["latitude"],
+                "height": ownWGS84["height"]
+            }
+            # 按照原速度移动的下一个点位
+            originNextPointEast = uav.ownState.position.east + uav.ownState.velocity.eastVelocity * uav.dt
+            originNextPointNorth = uav.ownState.position.north + uav.ownState.velocity.northVelocity * uav.dt
+            originNextPointUp = uav.ownState.position.up + uav.ownState.velocity.upVelocity * uav.dt
+            originNextWGS84 = utm_to_wgs84(
+                originNextPointEast,
+                originNextPointNorth,
+                originNextPointUp,
+                cfg.utmZone
+            )
+            entry["originallyNextPoint"] = {
+                "latitude": originNextWGS84["latitude"],
+                "longitude": originNextWGS84["longitude"],
+                "height": originNextWGS84["height"]
+            }
+            # 添加状态提示
+            hasAction = entry["actions"]["H"] != "NONE" or entry["actions"]["V"] != "NONE"
+            hasUWB = "UWB" in entry
+            hasRadar = "Radar" in entry
+            hasCloud = "Cloud" in entry
+            if hasAction:
+                # 只要有动作就是警告状态
+                entry["status"] = "warning"
+            elif hasUWB or hasRadar:
+                # 有UWB或Radar数据但没有动作，观察状态
+                entry["status"] = "watch"
+            elif hasCloud:
+                # 只有Cloud数据且没有动作，正常状态
+                entry["status"] = "OK"
+            else:
+                # 其他情况
+                entry["status"] = "unknown"
+            timeLine.append(entry)
     return {"timeline": timeLine}
 
 
