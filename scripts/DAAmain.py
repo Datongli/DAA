@@ -181,6 +181,10 @@ def DAAmain() -> dict:
                         "latitude": wgs84["latitude"],
                         "height": wgs84["height"]
                     }
+                # 修改风险提示与融合，若uwb不存在则全为0
+                if "UWB" not in trackFiles:
+                    entry["riskProfile"] = [0.0] * len(entry["riskProfile"])
+                    entry["comprehensive"] = []
             # 转换自身坐标到WGS84
             ownWGS84 = utm_to_wgs84(
                 uav.ownState.position.east,
