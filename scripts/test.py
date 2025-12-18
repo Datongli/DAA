@@ -84,10 +84,10 @@ if __name__ == "__main__":
     # print("=====" * 10)
 
 
-    # dataNum = 15  # 要生成的数据数量
+    # dataNum = 20  # 要生成的数据数量
     # datas = [[] for _ in range(dataNum)]
-    # eastBase = 503422  # 基准东坐标
-    # northBase = 4371295.2  # 基准北坐标
+    # eastBase = 503445  # 基准东坐标
+    # northBase = 4371251.9  # 基准北坐标
     # horizontalV = 10  # 水平速度，米/秒
     # yaw = -60  # 偏航角，度为单位，0度为正东
     # yaw = np.radians(yaw)

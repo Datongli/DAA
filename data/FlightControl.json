@@ -88,5 +88,35 @@
     "yaw": 90,
     "pitch": 0,
     "roll": 0
+  },
+  {
+    "timestamp": 15,
+    "yaw": 90,
+    "pitch": 0,
+    "roll": 0
+  },
+  {
+    "timestamp": 16,
+    "yaw": 90,
+    "pitch": 0,
+    "roll": 0
+  },
+  {
+    "timestamp": 17,
+    "yaw": 90,
+    "pitch": 0,
+    "roll": 0
+  },
+  {
+    "timestamp": 18,
+    "yaw": 90,
+    "pitch": 0,
+    "roll": 0
+  },
+  {
+    "timestamp": 19,
+    "yaw": 90,
+    "pitch": 0,
+    "roll": 0
   }
 ]
