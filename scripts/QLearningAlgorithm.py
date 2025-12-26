@@ -58,6 +58,7 @@ N_ACTIONS = len(ACTIONS)
 ROOT_DIR = Path(__file__).resolve().parent.parent
 CKPT_DIR = ROOT_DIR / "checkpoints"
 QTABLE_PATH = CKPT_DIR / "qtable_uav.npy"
+QTABLE_CSV_PATH = CKPT_DIR / "qtable_uav.csv"
 
 
 def wrap_angle_deg(a: float) -> float:
@@ -464,6 +465,27 @@ def save_qtable(agent: QLearningAgent, path: Path = QTABLE_PATH):
     np.save(path, agent.Q)
     print(f"[QTable] saved to: {path}")
 
+def export_qtable_csv(agent: QLearningAgent, path: Path = QTABLE_CSV_PATH):
+    """Export Q-table to a readable CSV file."""
+    import csv
+    
+    # Q shape: (THETA_BUCKETS, H_BUCKETS, DIST_BUCKETS, N_ACTIONS)
+    header = ["Theta_Idx", "H_Idx", "Dist_Idx"] + [f"Action_{i}_Yaw{ACTIONS[i]}" for i in range(N_ACTIONS)]
+    
+    CKPT_DIR.mkdir(parents=True, exist_ok=True)
+    with open(path, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow(header)
+        
+        for t in range(THETA_BUCKETS):
+            for h in range(H_BUCKETS):
+                for d in range(DIST_BUCKETS):
+                    row = [t, h, d]
+                    q_values = agent.Q[t, h, d, :].tolist()
+                    row.extend(q_values)
+                    writer.writerow(row)
+    print(f"[QTable] exported to CSV: {path}")
+
 def load_qtable_if_exists(agent: QLearningAgent, path: Path = QTABLE_PATH) -> bool:
     if path.exists():
         agent.Q = np.load(path)
@@ -532,6 +554,7 @@ def animate_episode(traj_own: np.ndarray, traj_intr: np.ndarray, interval_ms: in
     """
     import matplotlib.pyplot as plt
     from matplotlib.animation import FuncAnimation
+    from mpl_toolkits.mplot3d import Axes3D  # Ensure 3D projection is registered
 
     own = np.asarray(traj_own)
     intr = np.asarray(traj_intr)
@@ -598,6 +621,7 @@ def main():
 
     # 训练后保存 Q 表
     save_qtable(agent, QTABLE_PATH)
+    export_qtable_csv(agent, QTABLE_CSV_PATH)
 
     print("Evaluating greedy policy...")
     result = evaluate(agent, env, render=False)  # 不在这里静态渲染，转用动态动画
