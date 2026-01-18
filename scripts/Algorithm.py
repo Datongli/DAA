@@ -44,7 +44,8 @@ class ExampleAlgorithm(AlgorithmBaseClass):
         # 根据风险分布选择水平动作
         horizontalAction = self._lookup_horizontal_action(self.riskProfile, sectorIntruders)
         # 根据风险分布选择垂直动作
-        verticalAction = self._lookup_vertical_action(trmStates)
+        # verticalAction = self._lookup_vertical_action(trmStates)
+        verticalAction = VerticalAction.NONE  # 目前不使用垂直动作
         # 综合水平动作和垂直动作
         blendedAction = BlendedAction(horizontalAction, verticalAction)
         return blendedAction
@@ -179,7 +180,7 @@ class ExampleAlgorithm(AlgorithmBaseClass):
                 else:
                     return HorizontalAction.TURN_LEFT_SLOW
         # 中等威胁
-        elif state.timeToHorizontalLoss < 30:
+        elif state.timeToHorizontalLoss < 20:
             if state.relativeBearing < 0:
                 # 目标在左侧
                 return HorizontalAction.TURN_RIGHT_SLOW
@@ -214,7 +215,7 @@ class ExampleAlgorithm(AlgorithmBaseClass):
         # 新增：如果没有即将丢失分离的，但有高度差或高度一致且双方垂直速度都很小
         for state in trmStates:
             if abs(state.relativeAltitude) <= 1.0 and \
-            abs(state.ownVerticalSpeed) < 0.1 and abs(state.intruderVerticalSpeed) < 0.1:
+            abs(state.ownVerticalSpeed) < 0 and abs(state.intruderVerticalSpeed) < 0.1:
                 # 高度一致，主动选择上升
                 return VerticalAction.CLIMB
             elif abs(state.relativeAltitude) > 1.0 and \
