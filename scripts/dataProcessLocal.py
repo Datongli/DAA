@@ -24,9 +24,22 @@ def merge_by_timeStamp(cfg):
     flightControlData = pd.read_json(os.path.join(datadir, "FlightControl.json"))
     trackData = pd.read_json(os.path.join(datadir, "Track.json"))
     cloudData = pd.read_json(os.path.join(datadir, "Cloud.json"))
-    radarData = pd.read_json(os.path.join(datadir, "Radar.json"))
-    uwbData = pd.read_json(os.path.join(datadir, "UWB.json"))
-    intrudersRealData = pd.read_json(os.path.join(datadir, "IntruderReal.json"))
+
+    def _safe_read_json(path: str):
+        if (not os.path.exists(path)) or os.path.getsize(path) == 0:
+            return pd.DataFrame()
+        try:
+            return pd.read_json(path)
+        except ValueError:
+            # 内容不是合法 JSON，返回空表
+            return pd.DataFrame()
+
+    radarPath = os.path.join(datadir, "Radar.json")
+    uwbPath = os.path.join(datadir, "UWB.json")
+    intruderPath = os.path.join(datadir, "IntruderReal.json")
+    # radarData = _safe_read_json(radarPath)
+    # uwbData = _safe_read_json(uwbPath)
+    intrudersRealData = _safe_read_json(intruderPath)
     # 建立时间戳索引
     merged = {}
     # 读取Track文件
@@ -42,12 +55,12 @@ def merge_by_timeStamp(cfg):
     for item in intrudersRealData.to_dict(orient="records"):
         process_intruder_real_data(merged, item, cfg.utmZone)
     """现在radar和uwb数据由模拟构成"""
-    # 读取Radar文件
-    for item in radarData.to_dict(orient="records"):
-        process_radar_data(merged, item)
-    # 读取UWB文件
-    for item in uwbData.to_dict(orient="records"):
-        process_uwb_data(merged, item)
+    # # 读取Radar文件
+    # for item in radarData.to_dict(orient="records"):
+    #     process_radar_data(merged, item)
+    # # 读取UWB文件
+    # for item in uwbData.to_dict(orient="records"):
+    #     process_uwb_data(merged, item)
     return merged
         
 
@@ -58,17 +71,18 @@ def coordinate_transformation(item: dict, utmZone: str) -> tuple[dict, dict]:
     :param utmZone: UTM区域号，例如 '50N' / '50S'
     :return: 包含东北天坐标和速度的元组
     """
-    # 提取UTM区域号和半球
-    zoneNumber = utmZone[:-1]  # 分离数字部分和半球标识
+    zoneNumber = utmZone[:-1]
     hemisphere = 'north' if utmZone[-1].upper() == 'N' else 'south'
-    # 坐标转换到UTM
-    transformer = Transformer.from_crs("EPSG:4326",
-                                    f"+proj=utm +zone={zoneNumber} +{hemisphere} +ellps=WGS84")
-    east, north = transformer.transform(item["location"]["latitude"], item["location"]["longitude"])
+    utmCrs = f"+proj=utm +zone={zoneNumber} +{hemisphere} +ellps=WGS84"
+    # 注意这里也加 always_xy=True，并且传 (lon, lat)
+    transformer = Transformer.from_crs("EPSG:4326", utmCrs, always_xy=True)
+    lon = item["location"]["longitude"]
+    lat = item["location"]["latitude"]
+    east, north = transformer.transform(lon, lat)
     up = item["location"]["relativeHeight"]
     headingRad = np.radians(item["location"]["direction"])
-    eastV = item["location"]["horizontalSpeed"] * np.sin(headingRad)
-    northV = item["location"]["horizontalSpeed"] * np.cos(headingRad)
+    eastV = item["location"]["horizontalSpeed"] * np.cos(headingRad)
+    northV = item["location"]["horizontalSpeed"] * np.sin(headingRad)
     upV = item["location"]["verticalSpeed"]
     coordinate = {"east": east, "north": north, "up": up}
     velocity = {"eastVelocity": eastV, "northVelocity": northV, "upVelocity": upV}

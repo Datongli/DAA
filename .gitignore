@@ -1,2 +1,4 @@
 outputs/
 scripts/__pycache__/
+drawing.py
+*.png

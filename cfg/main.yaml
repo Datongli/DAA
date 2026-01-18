@@ -1,5 +1,5 @@
 env:
   num_envs: 1
 utmZone: 50N
-simulateSensors: True
+simulateSensors: 'True'
 dt: 1.0
