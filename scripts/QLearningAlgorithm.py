@@ -37,8 +37,7 @@ THETA_BUCKETS = 8  # 水平方向的角度分桶
 H_BUCKETS = 5      # 高度差分桶
 DIST_BUCKETS = 2   # 水平方向距离分桶: [0,25), [25,50]
 
-# --- 修改这里 ---
-HEADING_BUCKETS = 8  # 将 4 改为 8，使得对航向感知更细腻
+HEADING_BUCKETS = 8  # 对航向感知更细腻
 
 COLLISION_DIST = 5.0  # m
 
