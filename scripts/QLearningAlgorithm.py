@@ -37,6 +37,9 @@ THETA_BUCKETS = 8  # 水平方向的角度分桶
 H_BUCKETS = 5      # 高度差分桶
 DIST_BUCKETS = 2   # 水平方向距离分桶: [0,25), [25,50]
 
+# --- 修改这里 ---
+HEADING_BUCKETS = 8  # 将 4 改为 8，使得对航向感知更细腻
+
 COLLISION_DIST = 5.0  # m
 
 # Q-learning 超参数
@@ -45,7 +48,7 @@ ALPHA = 0.2
 EPSILON_START = 1.0
 EPSILON_END = 0.05
 EPSILON_DECAY_EPISODES = 300  # 线性衰减到终值
-TRAIN_EPISODES = 4000
+TRAIN_EPISODES = 40000
 MAX_STEPS_PER_EP = 200  # 单回合最多步数
 
 # 动作集合（仅水平角速度 Δψ）——在避障阶段取消垂直动作，竖直速度由 autopilot 或固定 0 控制
@@ -155,6 +158,31 @@ def bin_dist(dist: float) -> Optional[int]:
     if 25.0 <= dist <= 50.0:
         return 1
 
+def bin_heading(rel_heading_deg: float) -> int:
+    """
+    相对航向分桶 8等分 (每桶45度中心):
+    0: [-22.5, 22.5)   同向 (Same)
+    1: [22.5, 67.5)    右切 (Shallow Right)
+    2: [67.5, 112.5)   右侧 (Crossing Right)
+    3: [112.5, 157.5)  有对向趋势 (Head-on Right)
+    4: [157.5, 180] U [-180, -157.5) 正对向 (Head-on)
+    5: [-157.5, -112.5) 有对向趋势 (Head-on Left)
+    6: [-112.5, -67.5) 左侧 (Crossing Left)
+    7: [-67.5, -22.5)  左切 (Shallow Left)
+    """
+    a = wrap_angle_deg(rel_heading_deg)
+    
+    # 将角度偏移22.5度，然后除以45，实现以 0, 45, 90... 为中心的切分
+    # 比如: -20 -> idx 0 (即同向), 20 -> idx 0
+    # 40 -> idx 1 (即45度方向)
+    
+    # 1. 归一化到 [0, 360)
+    if a < 0:
+        a += 360.0
+        
+    # 2. 偏移并计算索引
+    idx = int((a + 22.5) / 45.0) % 8
+    return idx
 
 @dataclass
 class UAVState:
@@ -200,8 +228,8 @@ class SimpleUAV:
 
 class QLearningAgent:
     def __init__(self):
-        # Q表: [theta_bucket(8), h_bucket(5), dist_bucket(2), action(15)]
-        self.Q = np.zeros((THETA_BUCKETS, H_BUCKETS, DIST_BUCKETS, N_ACTIONS), dtype=float)
+        # 注意这里引用的是最新的 HEADING_BUCKETS (8)
+        self.Q = np.zeros((THETA_BUCKETS, H_BUCKETS, DIST_BUCKETS, HEADING_BUCKETS, N_ACTIONS), dtype=float)
 
     def epsilon(self, ep: int) -> float:
         if ep >= EPSILON_DECAY_EPISODES:
@@ -209,25 +237,26 @@ class QLearningAgent:
         # 线性衰减
         return EPSILON_START - (EPSILON_START - EPSILON_END) * (ep / EPSILON_DECAY_EPISODES)
 
-    def select_action(self, state: Tuple[int, int, int], ep: int) -> int:
-        theta_i, h_i, dist_i = state
+    def select_action(self, state: Tuple[int, int, int, int], ep: int) -> int: # <--- 类型提示改为4个int
+        theta_i, h_i, dist_i, head_i = state # <--- 解包增加 head_i
         eps = self.epsilon(ep)
         if random.random() < eps:
             return random.randrange(N_ACTIONS)
-        q = self.Q[theta_i, h_i, dist_i]
+        q = self.Q[theta_i, h_i, dist_i, head_i] # <--- 索引增加 head_i
         # 随机打破平局
         max_q = np.max(q)
         candidates = np.flatnonzero(np.isclose(q, max_q))
         return int(np.random.choice(candidates))
 
-    def update(self, s: Tuple[int, int, int], a: int, r: float, s_next: Optional[Tuple[int, int, int]], done: bool):
-        theta_i, h_i, dist_i = s
+    def update(self, s: Tuple[int, int, int, int], a: int, r: float, s_next: Optional[Tuple[int, int, int, int]], done: bool):
+        theta_i, h_i, dist_i, head_i = s # <--- 解包
         if done or s_next is None:
             target = r
         else:
-            tn, hn, dn = s_next
-            target = r + GAMMA * np.max(self.Q[tn, hn, dn])
-        self.Q[theta_i, h_i, dist_i, a] = (1 - ALPHA) * self.Q[theta_i, h_i, dist_i, a] + ALPHA * target
+            tn, hn, dn, head_n = s_next # <--- 解包 Next State
+            target = r + GAMMA * np.max(self.Q[tn, hn, dn, head_n]) # <--- 计算 Max Q
+        
+        self.Q[theta_i, h_i, dist_i, head_i, a] = (1 - ALPHA) * self.Q[theta_i, h_i, dist_i, head_i, a] + ALPHA * target
 
 
 class UAVCollisionEnv:
@@ -271,17 +300,24 @@ class UAVCollisionEnv:
         self.prev_dist = np.linalg.norm(self.own.state.pos - self.intr.state.pos)
         self.seed += 1  # 更新种子以便下次reset时不同
 
-    def _get_state(self) -> Optional[Tuple[int, int, int]]:
+    def _get_state(self) -> Optional[Tuple[int, int, int, int]]: # <--- 返回值增加一个int
         detected, theta_deg, dist3 = in_front_fov(self.own.state.yaw_deg, self.own.state.pos, self.intr.state.pos)
         if not detected:
             return None
         h_abs = abs(self.intr.state.pos[2] - self.own.state.pos[2])
+        
+        # --- 计算相对航向 ---
+        rel_heading = self.intr.state.yaw_deg - self.own.state.yaw_deg
+        
         th_idx = bin_theta(theta_deg)
-        dist_idx = bin_dist(dist3)  # 新增水平距离分桶
+        dist_idx = bin_dist(dist3)
+        heading_idx = bin_heading(rel_heading) # <--- 获取航向分桶
+
         if th_idx is None or dist_idx is None:
             return None
+        
         h_idx = bin_h(h_abs)
-        return (th_idx, h_idx, dist_idx)
+        return (th_idx, h_idx, dist_idx, heading_idx) # <--- 返回4元组
 
     def _autopilot_to_goal(self) -> Tuple[float, float]:
         """未探测到入侵者时：朝目标点直飞（限制角速±30°/s），竖直保持高度（0）"""
@@ -293,7 +329,7 @@ class UAVCollisionEnv:
         """入侵者固定对向直飞（航向保持-90°），竖直速度0"""
         return 0.0, 0.0
 
-    def step(self, action: Optional[int], use_rl: bool) -> Tuple[Optional[Tuple[int, int, int]], float, bool, dict]:
+    def step(self, action: Optional[int], use_rl: bool) -> Tuple[Optional[Tuple[int, int, int, int]], float, bool, dict]:
         """环境推进一步。
         - action: 若 use_rl=True，传入离散动作索引；否则忽略（自驾朝目标飞）
         - use_rl: True 表示开启RL（探测到入侵者后）
@@ -364,10 +400,15 @@ class UAVCollisionEnv:
         next_state = None
         if detected_next:
             th_i = bin_theta(theta_next)
-            dist_i = bin_dist(dist3_new)  # 新增水平距离分桶
+            dist_i = bin_dist(dist3_new)
+            
+            # --- Next State 也要计算 Heading ---
+            rel_heading_next = self.intr.state.yaw_deg - self.own.state.yaw_deg
+            head_i = bin_heading(rel_heading_next)
+
             if th_i is not None and dist_i is not None:
                 h_i = bin_h(abs(self.intr.state.pos[2] - self.own.state.pos[2]))
-                next_state = (th_i, h_i, dist_i)
+                next_state = (th_i, h_i, dist_i, head_i) # <--- 这里也要对应改成4元组
 
         info = {
             "t": self.t,
@@ -469,8 +510,9 @@ def export_qtable_csv(agent: QLearningAgent, path: Path = QTABLE_CSV_PATH):
     """Export Q-table to a readable CSV file."""
     import csv
     
-    # Q shape: (THETA_BUCKETS, H_BUCKETS, DIST_BUCKETS, N_ACTIONS)
-    header = ["Theta_Idx", "H_Idx", "Dist_Idx"] + [f"Action_{i}_Yaw{ACTIONS[i]}" for i in range(N_ACTIONS)]
+    # Q shape: (THETA, H, DIST, HEADING, ACTIONS)
+    # 修改 CSV Header
+    header = ["Theta_Idx", "H_Idx", "Dist_Idx", "Heading_Idx"] + [f"Action_{i}_Yaw{ACTIONS[i]}" for i in range(N_ACTIONS)]
     
     CKPT_DIR.mkdir(parents=True, exist_ok=True)
     with open(path, 'w', newline='', encoding='utf-8') as f:
@@ -480,10 +522,11 @@ def export_qtable_csv(agent: QLearningAgent, path: Path = QTABLE_CSV_PATH):
         for t in range(THETA_BUCKETS):
             for h in range(H_BUCKETS):
                 for d in range(DIST_BUCKETS):
-                    row = [t, h, d]
-                    q_values = agent.Q[t, h, d, :].tolist()
-                    row.extend(q_values)
-                    writer.writerow(row)
+                    for hd in range(HEADING_BUCKETS): # 确保这里循环的是新的8
+                        row = [t, h, d, hd]
+                        q_values = agent.Q[t, h, d, hd, :].tolist()
+                        row.extend(q_values)
+                        writer.writerow(row)
     print(f"[QTable] exported to CSV: {path}")
 
 def load_qtable_if_exists(agent: QLearningAgent, path: Path = QTABLE_PATH) -> bool:
@@ -510,8 +553,8 @@ def evaluate(agent: QLearningAgent, env: UAVCollisionEnv, render: bool = False) 
         use_rl = s is not None
         if use_rl:
             # 贪婪策略
-            theta_i, h_i, dist_i = s  # 修改为解包 3 个维度
-            q = agent.Q[theta_i, h_i, dist_i]
+            theta_i, h_i, dist_i, head_i = s  # <--- 解包 4 个维度
+            q = agent.Q[theta_i, h_i, dist_i, head_i]
             a = int(np.argmax(q))
         else:
             a = None
