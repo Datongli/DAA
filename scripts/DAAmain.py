@@ -99,27 +99,47 @@ def DAAmain() -> dict:
     
     return output
 
-# --- 修复后的测试入口 ---
 if __name__ == "__main__":
-    # 1. 模拟生成一些测试数据文件，防止因为没文件报错
+    print("-" * 30)
+    print(">>> 开始 DAAmain 本地测试")
+    print("-" * 30)
+    
+    # 1. 确保目录存在
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     
-    # 模拟本无人机
-    with open(DATA_DIR / "FlightControl.json", "w") as f:
-        json.dump({"x": 0, "y": 0, "z": 25, "yaw": 90}, f)
-        
-    # 模拟入侵者 (距离 sqrt(30^2 + 30^2) ≈ 42m < 50m)
-    with open(DATA_DIR / "IntruderReal.json", "w") as f:
-        json.dump({"x": 0, "y": 20, "z": 25, "vx": 0, "vy": -10, "yaw":-90}, f)
-
-    print(">>> 正在运行 DAAmain 本地测试...")
+    # 2. 检查文件是否存在
+    fc_path = DATA_DIR / "FlightControl.json"
+    track_path = DATA_DIR / "Track.json"
+    intr_path = DATA_DIR / "IntruderReal.json"
     
-    # 2. 调用主函数
+    print(f"检查 FlightControl.json: {fc_path.exists()} ({fc_path})")
+    print(f"检查 Track.json: {track_path.exists()} ({intr_path})")
+    print(f"检查 IntruderReal.json: {intr_path.exists()} ({intr_path})")
+    
+    # 3. 强制指定读取 Track.json (为了验证你的 Track.json)
+    # 如果 IntruderReal 存在，脚本默认会读它。为了测试，我们先把它改名或删掉，或者在代码里强制指定。
+    # 这里我们临时通过重命名来屏蔽 IntruderReal.json，确保测试 Track.json
+    temp_backup = None
+    if intr_path.exists():
+        print("发现旧的 IntruderReal.json，暂时重命名以强制使用 Track.json...")
+        temp_backup = intr_path.with_suffix(".json.bak")
+        intr_path.rename(temp_backup)
+        
     try:
-        daaResult = DAAmain()
-        print("\n" + "=" * 50)
-        print("DAA 运行结果:")
-        print(json.dumps(daaResult, indent=2, ensure_ascii=False))
-        print("=" * 50)
+        print("正在调用 DAAmain()...")
+        res = DAAmain()
+        print("\n>>> DAAmain 返回结果:")
+        print(json.dumps(res, indent=2, ensure_ascii=False))
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print(f"运行出错: {e}")
+    finally:
+        # 恢复由于测试而重命名的文件
+        if temp_backup and temp_backup.exists():
+            print("恢复 IntruderReal.json...")
+            temp_backup.rename(intr_path)
+
+    print("-" * 30)
+    print(">>> 测试结束")
+    print("-" * 30)

@@ -176,18 +176,18 @@ class DAAReasoner:
                 response["action_code"] = action_idx
                 response["yaw_rate_cmd"] = yaw_rate
                 
-                # --- 改进后的 maniobra (机动) 描述逻辑 ---
-                if yaw_rate > 20.0:
-                    response["maneuver"] = "Hard Left Turn"  # 急左转 (>20)
-                elif yaw_rate > 1e-3:
-                    response["maneuver"] = "Soft Turn Left"       # 缓左转 (0~20)
-                elif yaw_rate < -20.0:
-                    response["maneuver"] = "Hard Right Turn" # 急右转 (<-20)
+                # --- 核心修改：适配你的定义 (负左正右) ---
+                if yaw_rate < -20.0:
+                    response["maneuver"] = "Hard Left Turn"  # -30
                 elif yaw_rate < -1e-3:
-                    response["maneuver"] = "Soft Turn Right"      # 缓右转 (-20~0)
+                    response["maneuver"] = "Turn Left"       # -10
+                elif yaw_rate > 20.0:
+                    response["maneuver"] = "Hard Right Turn" # +30
+                elif yaw_rate > 1e-3:
+                    response["maneuver"] = "Turn Right"      # +10
                 else:
                     response["maneuver"] = "Maintain"
-                # ---------------------------------------
+                # --------------------------------------
 
                 response["msg"] = "RL Decision made."
                 
