@@ -18,14 +18,14 @@ def main():
     # --- 场景定义：交叉汇聚 (Crossing Conflict) ---
     # 本机：从 (0, 0) 开始，向北飞 (90度)，速度 10 m/s
     own_x, own_y = 0.0, 0.0
-    own_vx, own_vy = 0.0, 10.0
-    own_yaw = 90.0
+    own_vx, own_vy = 0, 10
+    own_yaw = 135.0
 
     # 敌人：从右侧 (50, 50) 开始，向西飞 (180度)，横切本机航线，速度 10 m/s
     # 预计 5秒后，本机到达 (0, 50)，敌人到达 (0, 50) -> 发生碰撞！
-    intr_x, intr_y = 50.0, 50.0
-    intr_vx, intr_vy = -10.0, 0.0
-    intr_yaw = 180.0
+    intr_x, intr_y = -50.0, 100.0
+    intr_vx, intr_vy = 10, -10
+    intr_yaw = 315
     
     # 仿真步长
     dt = 1.0 
