@@ -35,38 +35,37 @@ class DAAReasoner:
         else:
             print(f"[DAA_RL] WARNING: Q-table not found at {QTABLE_PATH}. Predictions will be random!")
 
-    def _parse_ownship(self, data: Dict) -> Tuple[np.ndarray, float]:
+    def _parse_ownship(self, data: Dict) -> Tuple[np.ndarray, float, np.ndarray]:
         """
         解析本无人机数据 (FlightControl.json)
-        返回: (pos_vec3, yaw_deg)
+        返回: (pos_vec3, yaw_deg, vel_vec2)
         """
         if not data:
-            return np.zeros(3), 0.0
+            return np.zeros(3), 0.0, np.zeros(2)
             
-        # 根据你的 Json 结构适配
-        # 假设结构是平铺的 {"x":..., "y":..., "z":..., "yaw":...}
         try:
             x = float(data.get('x', 0.0))
             y = float(data.get('y', 0.0))
             z = float(data.get('z', 0.0))
-            # 注意：如果飞控传来的是弧度，需转为度
             yaw = float(data.get('psi', data.get('yaw', 90.0))) 
+            
+            # 解析速度
+            vx = float(data.get('vx', data.get('ve', 0.0)))
+            vy = float(data.get('vy', data.get('vn', 0.0)))
         except (ValueError, TypeError):
-            return np.zeros(3), 0.0
+            return np.zeros(3), 0.0, np.zeros(2)
 
-        return np.array([x, y, z], dtype=float), yaw
+        return np.array([x, y, z], dtype=float), yaw, np.array([vx, vy], dtype=float)
 
-    def _parse_intruder(self, data: Any) -> Optional[Tuple[np.ndarray, float]]:
+    def _parse_intruder(self, data: Any) -> Optional[Tuple[np.ndarray, float, np.ndarray]]:
         """
         解析入侵者数据 (IntruderReal.json 或 Track.json)
-        返回: (pos_vec3, yaw_deg)
+        返回: (pos_vec3, yaw_deg, vel_vec2)
         """
         target = None
-        
-        # 处理 list (Track.json) 或 dict (IntruderReal.json)
         if isinstance(data, list):
             if len(data) > 0:
-                target = data[0] # 简单起见，仅处理第一个目标
+                target = data[0]
         elif isinstance(data, dict):
             target = data
             
@@ -78,20 +77,18 @@ class DAAReasoner:
             y = float(target.get('y', 0.0))
             z = float(target.get('z', 0.0))
             
-            # 尝试直接获取航向，如果没有则通过速度计算
+            vx = float(target.get('vx', target.get('ve', 0.0)))
+            vy = float(target.get('vy', target.get('vn', 0.0)))
+            
             if 'yaw' in target:
                 yaw = float(target['yaw'])
-            elif 'vx' in target and 'vy' in target:
-                vx = float(target['vx'])
-                vy = float(target['vy'])
+            else:
                 if abs(vx) < 1e-3 and abs(vy) < 1e-3:
                     yaw = 0.0
                 else:
                     yaw = np.degrees(np.arctan2(vy, vx))
-            else:
-                yaw = 0.0 # 默认
                 
-            return np.array([x, y, z], dtype=float), yaw
+            return np.array([x, y, z], dtype=float), yaw, np.array([vx, vy], dtype=float)
         except (ValueError, TypeError):
             return None
 
@@ -129,7 +126,7 @@ class DAAReasoner:
             return response
 
         # 3. 解析物理量
-        own_pos, own_yaw = self._parse_ownship(own_json)
+        own_pos, own_yaw, own_vel = self._parse_ownship(own_json)
         intr_res = self._parse_intruder(intr_json)
         
         if intr_res is None:
@@ -137,7 +134,7 @@ class DAAReasoner:
             response["msg"] = "No intruder data found."
             return response
             
-        intr_pos, intr_yaw = intr_res
+        intr_pos, intr_yaw, intr_vel = intr_res
 
         # 4. 计算 RL 状态 (与 QLearningAlgorithm.evaluate 逻辑一致)
         detected, theta_deg, dist3 = in_front_fov(own_yaw, own_pos, intr_pos)
@@ -149,12 +146,22 @@ class DAAReasoner:
 
         # 计算分桶索引
         h_abs = abs(intr_pos[2] - own_pos[2])
-        rel_heading = intr_yaw - own_yaw
+        
+        # --- 核心修改：矢量查表（相对速度角） ---
+        rel_vel = intr_vel - own_vel
+        # 如果相对速度极小，默认认为其航向角差为0（或按原逻辑备用）
+        if np.linalg.norm(rel_vel) < 1e-3:
+            rel_heading = 0.0
+        else:
+            rel_vel_ang = np.degrees(np.arctan2(rel_vel[1], rel_vel[0]))
+            # 导入 numpy 或 math 实现归一化 
+            rel_heading = (rel_vel_ang - own_yaw + 180.0) % 360.0 - 180.0
+        # --------------------------------------
         
         th_idx = bin_theta(theta_deg)
         dist_idx = bin_dist(dist3)
         h_idx = bin_h(h_abs)
-        head_idx = bin_heading(rel_heading) # 必须保证 QLearningAlgorithm 已更新此函数
+        head_idx = bin_heading(rel_heading) # 调用已有的 bin_heading 分桶
 
         # 5. 查表
         if th_idx is not None and dist_idx is not None:
@@ -176,15 +183,15 @@ class DAAReasoner:
                 response["action_code"] = action_idx
                 response["yaw_rate_cmd"] = yaw_rate
                 
-                # --- 核心修改：适配你的定义 (负左正右) ---
+                # --- 核心修改：适配极坐标系 (正角左转，负角右转) ---
                 if yaw_rate < -20.0:
-                    response["maneuver"] = "Hard Left Turn"  # -30
+                    response["maneuver"] = "Hard Right Turn" # -30 角度变小，往右转
                 elif yaw_rate < -1e-3:
-                    response["maneuver"] = "Turn Left"       # -10
+                    response["maneuver"] = "Turn Right"      # -10
                 elif yaw_rate > 20.0:
-                    response["maneuver"] = "Hard Right Turn" # +30
+                    response["maneuver"] = "Hard Left Turn"  # +30 角度变大，往左转
                 elif yaw_rate > 1e-3:
-                    response["maneuver"] = "Turn Right"      # +10
+                    response["maneuver"] = "Turn Left"       # +10
                 else:
                     response["maneuver"] = "Maintain"
                 # --------------------------------------

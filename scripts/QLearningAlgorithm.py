@@ -401,14 +401,34 @@ class UAVCollisionEnv:
             th_i = bin_theta(theta_next)
             dist_i = bin_dist(dist3_new)
             
-            # --- Next State 也要计算 Heading ---
-            rel_heading_next = self.intr.state.yaw_deg - self.own.state.yaw_deg
-            head_i = bin_heading(rel_heading_next)
+            # --- 这一部分同样修改为计算相对速度向量角 ---
+            own_yaw_rad_next = math.radians(self.own.state.yaw_deg)
+            own_vx_next = self.own.horiz_speed * math.cos(own_yaw_rad_next)
+            own_vy_next = self.own.horiz_speed * math.sin(own_yaw_rad_next)
+            
+            if hasattr(self.intr, '_vel'):
+                intr_vx_next = self.intr._vel[0]
+                intr_vy_next = self.intr._vel[1]
+            else:
+                intr_yaw_rad_next = math.radians(self.intr.state.yaw_deg)
+                intr_vx_next = self.intr.horiz_speed * math.cos(intr_yaw_rad_next)
+                intr_vy_next = self.intr.horiz_speed * math.sin(intr_yaw_rad_next)
+                
+            rel_vx_next = intr_vx_next - own_vx_next
+            rel_vy_next = intr_vy_next - own_vy_next
+            
+            if math.hypot(rel_vx_next, rel_vy_next) < 1e-3:
+                rel_heading_next = 0.0
+            else:
+                rel_vel_ang_next = math.degrees(math.atan2(rel_vy_next, rel_vx_next))
+                rel_heading_next = wrap_angle_deg(rel_vel_ang_next - self.own.state.yaw_deg)
 
+            head_i = bin_heading(rel_heading_next)
+            # ---------------------------------------------
+            
             if th_i is not None and dist_i is not None:
                 h_i = bin_h(abs(self.intr.state.pos[2] - self.own.state.pos[2]))
-                next_state = (th_i, h_i, dist_i, head_i) # <--- 这里也要对应改成4元组
-
+                next_state = (th_i, h_i, dist_i, head_i)
         info = {
             "t": self.t,
             "collision": collision,
