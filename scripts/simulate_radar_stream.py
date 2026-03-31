@@ -38,14 +38,14 @@ def main():
     
     # --- 绘图初始化: 1行2列 ---
     plt.ion()  
-    fig = plt.figure(figsize=(14, 6))
+    fig = plt.figure(figsize=(16, 8))
     
     # 左侧主图和右侧主图
     ax_map = fig.add_subplot(121)
     ax_state = fig.add_subplot(122, polar=True)
     
     # 创建罗盘镶嵌子图 (相对速度向量指示：处于右图偏右上区域)
-    ax_compass = fig.add_axes([0.80, 0.70, 0.15, 0.15], polar=True)
+    ax_compass = fig.add_axes([0.83, 0.63, 0.2, 0.2], polar=True)
 
     # --- 记录历史 ---
     own_history_x, own_history_y = [], []
@@ -158,34 +158,49 @@ def main():
         # ==================================
         ax_compass.clear()
         ax_compass.set_theta_zero_location("N") 
-        
-        # 罗盘同样必须设为 1 (逆时针)，否则也会左右颠倒
-        ax_compass.set_theta_direction(1)
+        # 为了让 0 最上且 1 顺时针（或逆时针，底层 1 是正数，若极坐标中正数也是预期方向，保持设定的方向）
+        ax_compass.set_theta_direction(1) # 如果您希望 1 出现在右边(顺时针递增)，请改成 -1
         ax_compass.set_yticks([]) 
         ax_compass.set_xticks([])
-        ax_compass.spines['polar'].set_visible(False) 
+        
+        # 👇 修改这一行 👇
+        # 原来是: ax_compass.spines['polar'].set_visible(False) 
+        # 改为显示外围圆圈，并设置淡灰色边框
+        ax_compass.spines['polar'].set_visible(True) 
+        ax_compass.spines['polar'].set_color('#cccccc')
+        ax_compass.spines['polar'].set_linewidth(1.5)
+        # 👆 修改结束 👆
+        
         ax_compass.set_title("Rel Velocity\n(Heading Idx)", fontsize=9, pad=10)
         
-        ax_compass.set_ylim(0, 1.5)
+        ax_compass.set_ylim(0, 0.8)
         
+        # 仅绘制淡淡的背景刻度线（8等分边界或中心，无数字标签）
         for h_idx in range(8):
-            start_ang = HEADING_BINS[h_idx]
-            end_ang = HEADING_BINS[h_idx+1]
-            mid_ang = (start_ang + end_ang) / 2.0
-            mid_rad = math.radians(mid_ang)
+            # 将参考线画在边界上 (每22.5度, 67.5度...) 以区分区块
+            bound_ang = h_idx * 45.0 + 22.5
+            bound_rad = math.radians(bound_ang)
+            ax_compass.plot([bound_rad, bound_rad], [0, 0.8], color='#f0f0f0', linewidth=1)
+
+        # 只在其激活的对应区块正中间画出唯一的箭头
+        if 0 <= current_heading_idx < 8:
+            # 根据底层 bin_heading 定义，中心角度就是 idx * 45.0
+            active_mid_ang = current_heading_idx * 45.0
+            active_mid_rad = math.radians(active_mid_ang)
             
-            is_active_heading = (h_idx == current_heading_idx)
-            color = 'red' if is_active_heading else 'lightgray'
-            linewidth = 3 if is_active_heading else 1
-            length = 1.0 if is_active_heading else 0.7
+            # 绘制实体箭头
+            # 此时最大边界是0.8，将箭头顶端设在圆圈边缘或略微突出一丁点，比如0.8
+            ax_compass.annotate(
+                '', 
+                xy=(active_mid_rad, 0.8),      # 箭头尖端贴近圆边
+                xytext=(0, 0),                 # 箭头起点
+                # 将箭头的长度参数稍微调整一下，以免画满太粗糙，不改也行但是缩放后 headlength 等可能需要变小
+                arrowprops=dict(facecolor='red', edgecolor='red', width=3, headwidth=9, headlength=9, shrink=0)
+            )
             
-            ax_compass.plot([mid_rad, mid_rad], [0, length], color=color, linewidth=linewidth)
-            ax_compass.plot([mid_rad], [length], marker='^', color=color, markersize=linewidth*3)
-            
-            if is_active_heading:
-                ax_compass.text(mid_rad, 1.3, f"H{h_idx}", color=color, fontweight='bold', ha='center', va='center', fontsize=9)
-            else:
-                ax_compass.text(mid_rad, 0.9, f"{h_idx}", color='gray', ha='center', va='center', fontsize=7)
+            # 文本也往内缩进一点，放在外侧刚刚超出圆环的地方(通常可以用 annotation 参数自带的框，或者坐标放在 0.95 处以免被外边框切掉)
+            # 为了防止被切掉，这里可以使用 matplotlib 中的 clip_on=False 强制允许文字溢出
+            ax_compass.text(active_mid_rad, 0.95, f"H{current_heading_idx}", color='red', fontweight='bold', ha='center', va='center', fontsize=10, clip_on=False)
 
         # UI 刷新
         plt.pause(dt)
